@@ -60,8 +60,10 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 
 # Nederlandse maanden -> maandnummer (voor datums als "22 mei 2026").
 NL_MONTHS = {
-    "jan": 1, "feb": 2, "mrt": 3, "maart": 3, "apr": 4, "mei": 5, "jun": 6, "juni": 6,
-    "jul": 7, "juli": 7, "aug": 8, "sep": 9, "sept": 9, "okt": 10, "nov": 11, "dec": 12,
+    "jan": 1, "januari": 1, "feb": 2, "februari": 2, "mrt": 3, "maart": 3,
+    "apr": 4, "april": 4, "mei": 5, "jun": 6, "juni": 6,
+    "jul": 7, "juli": 7, "aug": 8, "augustus": 8, "sep": 9, "sept": 9, "september": 9,
+    "okt": 10, "oktober": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
 }
 
 
@@ -242,12 +244,14 @@ def iso_date(v) -> str | None:
     v = str(v).strip()
     if len(v) >= 10 and v[4] == "-" and v[7] == "-":   # al ISO (evt met tijd)
         return v[:10]
-    parts = v.replace(",", "").split()                  # "22 mei 2026 15:10"
-    if len(parts) >= 3 and parts[1].lower()[:4] in {k[:4] for k in NL_MONTHS}:
-        day = int(parts[0]); year = int(parts[2])
-        mon = NL_MONTHS.get(parts[1].lower()) or NL_MONTHS.get(parts[1].lower()[:3])
+    parts = v.replace(",", "").split()                  # "22 mei 2026 15:10" of "24 oktober 2025"
+    if len(parts) >= 3:
+        mon = NL_MONTHS.get(parts[1].lower())
         if mon:
-            return f"{year:04d}-{mon:02d}-{day:02d}"
+            try:
+                return f"{int(parts[2]):04d}-{mon:02d}-{int(parts[0]):02d}"
+            except (ValueError, IndexError):
+                pass
     return None
 
 
