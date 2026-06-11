@@ -134,10 +134,14 @@ def golfnl_fetch_scores(session: requests.Session) -> list[dict]:
     # sessie geldig is).
     r = request_with_retry("GET", SCORES_PAGE, session=session,
                            headers={"Referer": "https://mijn.golf.nl/dashboard"})
+    log.debug("Scores-pagina: finale URL=%s, status=%s, grootte=%d bytes.",
+              r.url, r.status_code, len(r.text))
+    log.debug("Scores-HTML eerste 300 tekens: %s", r.text[:300].replace("\n", " "))
     rounds = parse_scores_html(r.text)
     if not rounds:
         log.warning("Geen rondes gevonden in de scores-HTML "
-                    "(layout gewijzigd of sessie verlopen?).")
+                    "(layout gewijzigd of sessie verlopen?). "
+                    "Finale URL was: %s", r.url)
     return rounds
 
 
