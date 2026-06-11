@@ -106,7 +106,10 @@ export async function signOut() {
 // Roept cb(user|null) aan bij elke login/logout/sessie-wijziging.
 export function onAuthChange(cb) {
   if (mode !== "supabase") return;
-  client.auth.onAuthStateChange((_event, session) => cb(session?.user || null));
+  client.auth.onAuthStateChange((_event, session) => {
+    console.log("[onAuthChange] Event:", _event, "Session:", session?.user?.email || "null");
+    cb(session?.user || null);
+  });
 }
 
 async function accessToken() {
