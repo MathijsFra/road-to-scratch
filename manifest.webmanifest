@@ -1,0 +1,13 @@
+{
+  "name": "Golf Progressie Tracker",
+  "short_name": "Golf Tracker",
+  "description": "Houd je golfrondes, handicap-progressie en Garmin-stats bij.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14532d",
+  "theme_color": "#14532d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

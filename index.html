@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#14532d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Golf Tracker" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Golf Progressie Tracker</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <h1>⛳ Golf Tracker</h1>
+      <span id="dbBadge" class="db-badge" title="Opslagmodus">…</span>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="hero-card">
+        <div class="hero-label">Huidige handicap</div>
+        <div class="hero-value" id="heroHcp">–</div>
+        <div class="hero-sub" id="heroProgress"></div>
+      </div>
+
+      <div class="stat-grid" id="statGrid"></div>
+
+      <h2 class="section-title">Spel-statistieken</h2>
+      <div class="stat-grid" id="playGrid"></div>
+
+      <h2 class="section-title">Par scoring</h2>
+      <div class="stat-grid" id="parGrid"></div>
+
+      <h2 class="section-title">Garmin gemiddelden</h2>
+      <div class="stat-grid" id="garminGrid"></div>
+
+      <h2 class="section-title">Exceptionele scores (EXS)</h2>
+      <div id="exsList" class="exs-list"></div>
+
+      <h2 class="section-title">Laatste rondes</h2>
+      <div id="recentList" class="round-list"></div>
+    </section>
+
+    <!-- ROUNDS -->
+    <section id="view-rounds" class="view">
+      <div class="toolbar">
+        <h2 class="section-title">Alle rondes (<span id="roundCount">0</span>)</h2>
+        <select id="filterHoles" class="mini-select">
+          <option value="all">Alle holes</option>
+          <option value="9">9 holes</option>
+          <option value="18">18 holes</option>
+        </select>
+      </div>
+      <div id="roundList" class="round-list"></div>
+    </section>
+
+    <!-- CHART -->
+    <section id="view-chart" class="view">
+      <h2 class="section-title">Handicap progressie</h2>
+      <div class="chart-wrap"><canvas id="hcpChart"></canvas></div>
+      <h2 class="section-title">Stableford per ronde</h2>
+      <div class="chart-wrap"><canvas id="stbChart"></canvas></div>
+      <h2 class="section-title">Rolling 10-rondes trend</h2>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </section>
+
+    <!-- ADD / EDIT -->
+    <section id="view-add" class="view">
+      <h2 class="section-title" id="formTitle">Ronde toevoegen</h2>
+      <form id="roundForm" autocomplete="off">
+        <input type="hidden" id="f_id" />
+
+        <fieldset id="uploadFieldset">
+          <legend>📷 Screenshots uploaden</legend>
+          <p class="hint">Upload je GOLF.NL-schermen (Score + Scorecard). Met een gekoppelde Supabase leest de AI ze automatisch in.</p>
+          <label class="sr-label">Screenshots
+            <input type="file" id="f_shots" accept="image/*" multiple capture="environment" />
+          </label>
+          <div id="shotPreview" class="shot-preview"></div>
+          <button type="button" class="btn btn-ai" id="parseBtn" hidden>✨ Lees screenshots met AI</button>
+          <p id="parseMsg" class="form-msg"></p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Ronde</legend>
+          <label>Datum
+            <input type="date" id="f_date" required />
+          </label>
+          <label>Baan
+            <input type="text" id="f_course" list="courseList" placeholder="bijv. Zeewolde" required />
+            <datalist id="courseList"></datalist>
+          </label>
+          <div class="row">
+            <label>Holes
+              <select id="f_holes">
+                <option value="9">9</option>
+                <option value="18" selected>18</option>
+              </select>
+            </label>
+            <label>Tee
+              <input type="text" id="f_tee" list="teeList" placeholder="Geel" />
+              <datalist id="teeList">
+                <option value="Geel"></option>
+                <option value="Rood"></option>
+                <option value="Wit"></option>
+                <option value="Blauw"></option>
+                <option value="Oranje"></option>
+              </datalist>
+            </label>
+          </div>
+          <div class="row">
+            <label>STB (Stableford)
+              <input type="number" inputmode="numeric" id="f_stb" placeholder="36" />
+            </label>
+            <label>SD (dagresultaat)
+              <input type="text" inputmode="decimal" id="f_sd" placeholder="38.2" />
+            </label>
+          </div>
+          <label>Handicap (index)
+            <input type="text" inputmode="decimal" id="f_hcp" placeholder="38.2" />
+          </label>
+          <div class="row">
+            <label>Totaal slagen
+              <input type="number" inputmode="numeric" id="f_score" placeholder="50" />
+            </label>
+            <label>Baanhandicap
+              <input type="number" inputmode="numeric" id="f_course_handicap" placeholder="18" />
+            </label>
+          </div>
+        </fieldset>
+
+        <details class="adv">
+          <summary>Score &amp; nauwkeurigheid</summary>
+          <div class="adv-body">
+            <div class="row">
+              <label>GIR (greens)
+                <input type="number" inputmode="numeric" id="f_gir" placeholder="2" />
+              </label>
+              <label>3-putts
+                <input type="number" inputmode="numeric" id="f_three_putts" placeholder="2" />
+              </label>
+            </div>
+            <div class="row">
+              <label>Fairways geraakt
+                <input type="number" inputmode="numeric" id="f_fairways_hit" placeholder="4" />
+              </label>
+              <label>Fairways totaal
+                <input type="number" inputmode="numeric" id="f_fairways_total" placeholder="7" />
+              </label>
+            </div>
+            <label>Double bogeys (of slechter)
+              <input type="number" inputmode="numeric" id="f_double_bogeys" placeholder="3" />
+            </label>
+          </div>
+        </details>
+
+        <details class="adv" id="holesDetails">
+          <summary>Per hole invoeren</summary>
+          <div class="adv-body">
+            <p class="hint">Vul per hole in wat je weet. GIR%, fairway%, 3-putts, double bogeys en par-scoring worden hieruit berekend. (FW = fairway: ✓ geraakt, ← links, → rechts, ✗ gemist; laat leeg bij par 3.)</p>
+            <div class="holes-grid-wrap"><table class="holes-input-table" id="holesGrid"></table></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="clearHolesBtn" style="margin-top:10px">Per-hole wissen</button>
+          </div>
+        </details>
+
+        <fieldset>
+          <legend>Garmin stats <span class="optional">(optioneel)</span></legend>
+          <div class="row">
+            <label>Putts
+              <input type="number" inputmode="numeric" id="f_putts" placeholder="32" />
+            </label>
+            <label>Penalties
+              <input type="number" inputmode="numeric" id="f_penalties" placeholder="2" />
+            </label>
+          </div>
+          <div class="row">
+            <label>Bunkers
+              <input type="number" inputmode="numeric" id="f_bunkers" placeholder="3" />
+            </label>
+            <label>Bunker saves
+              <input type="number" inputmode="numeric" id="f_bunker_saves" placeholder="1" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Notities <span class="optional">(optioneel)</span></legend>
+          <label class="sr-label">Notities
+            <textarea id="f_notes" rows="2" placeholder="bijv. wind, gevoel, opmerkingen"></textarea>
+          </label>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="saveBtn">Opslaan</button>
+          <button type="button" class="btn btn-ghost" id="cancelBtn" hidden>Annuleren</button>
+        </div>
+        <p id="formMsg" class="form-msg"></p>
+      </form>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-view="dashboard"><span class="ico">📊</span>Overzicht</button>
+    <button class="tab" data-view="rounds"><span class="ico">📋</span>Rondes</button>
+    <button class="tab tab-add" data-view="add"><span class="ico">＋</span>Toevoegen</button>
+    <button class="tab" data-view="chart"><span class="ico">📈</span>Grafiek</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

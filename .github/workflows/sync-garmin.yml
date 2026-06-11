@@ -1,0 +1,29 @@
+name: Sync Garmin
+
+# Draait dagelijks iets ná de GOLF.NL-sync (die maakt/voedt de rondes),
+# en met een handmatige knop.
+on:
+  schedule:
+    - cron: "30 5 * * *"   # ~07:30 NL-tijd (05:30 UTC)
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Sync Garmin -> Supabase
+        env:
+          GARMIN_TOKEN: ${{ secrets.GARMIN_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python scripts/sync_garmin.py

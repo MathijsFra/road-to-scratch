@@ -1,0 +1,29 @@
+name: Sync GOLF.NL
+
+# Draait automatisch én handmatig (knop "Run workflow" op het Actions-tabblad).
+on:
+  schedule:
+    - cron: "0 5 * * *"   # elke dag ~07:00 NL-tijd (05:00 UTC)
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Sync GOLF.NL -> Supabase
+        env:
+          GOLFNL_USERNAME: ${{ secrets.GOLFNL_USERNAME }}
+          GOLFNL_PASSWORD: ${{ secrets.GOLFNL_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python scripts/sync_golfnl.py
