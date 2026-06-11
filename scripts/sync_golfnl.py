@@ -37,7 +37,7 @@ LOGIN_URL = "https://mijn.golf.nl/login"
 # De scores-pagina laadt de lijst via een AJAX-partial. Dit is dat endpoint
 # (scorecardid=MA== -> base64 "0" -> de volledige lijst).
 SCORES_PAGE = "https://mijn.golf.nl/mijn-spel/scores"
-SCORES_URL = "https://mijn.golf.nl/Scores/ScoresDetails?scorecardid=MA%3d%3d"
+SCORES_URL = "https://mijn.golf.nl/mijn-spel/Scores/ScoresDetails?scorecardid=MA%3d%3d"
 # Detailpagina per scorekaart (server-gerenderd). {id} = de id uit de lijst.
 SCORE_DETAIL_URL = "https://mijn.golf.nl/mijn-spel/scores/scorekaart-bekijken?scorecardid={id}"
 # Per nieuwe ronde de scorekaart ophalen voor par/score-per-hole + holes-telling.
