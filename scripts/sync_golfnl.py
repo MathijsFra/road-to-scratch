@@ -115,9 +115,15 @@ HOLES_THRESHOLD = 70
 
 def golfnl_fetch_scores(session: requests.Session) -> list[dict]:
     """Haalt de scores-partial op en parseert 'm naar rondes."""
+    log.debug("Actieve cookies: %s", [c.name for c in session.cookies])
+    # Bezoek eerst de scores-pagina — Sitecore bouwt hierbij de sessie-context op
+    # die het AJAX-endpoint nodig heeft om de gebruiker te herkennen.
+    request_with_retry("GET", SCORES_PAGE, session=session,
+                       headers={"Referer": "https://mijn.golf.nl/dashboard"})
+    log.debug("Cookies na scores-pagina: %s", [c.name for c in session.cookies])
     r = request_with_retry("GET", SCORES_URL, session=session, headers={
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://mijn.golf.nl/mijn-spel/scores",
+        "Referer": SCORES_PAGE,
     })
     rounds = parse_scores_html(r.text)
     if not rounds:
