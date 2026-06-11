@@ -5,12 +5,12 @@
 // Bedoeld voor het sync-script (GitHub Actions), niet voor de browser.
 //
 // Deploy:
-//   supabase functions deploy get-golfnl-creds
-//   (GOLF_ENCRYPT_KEY is al ingesteld via save-golfnl-creds)
+//   supabase functions deploy get-golfnl-creds --no-verify-jwt
 // -------------------------------------------------------------------
 
 const ENCRYPT_KEY_HEX = Deno.env.get("GOLF_ENCRYPT_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+// Auto-injected by Supabase runtime — used for DB writes.
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 function json(body: unknown, status = 200) {
@@ -39,20 +39,24 @@ async function decryptPassword(ciphertext: string, hexKey: string): Promise<stri
 Deno.serve(async (req: Request) => {
   if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
 
-  // Alleen de service-role key mag deze functie aanroepen.
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
-  if (!token || token !== SUPABASE_SERVICE_ROLE_KEY) {
-    return json({ error: "Forbidden" }, 403);
-  }
+  if (!token) return json({ error: "Unauthorized" }, 401);
 
   if (!ENCRYPT_KEY_HEX) return json({ error: "GOLF_ENCRYPT_KEY niet ingesteld" }, 500);
 
-  // Haal alle gebruikers met credentials op.
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/user_settings?select=user_id,golfnl_username,golfnl_password&golfnl_username=not.is.null&golfnl_password=not.is.null`,
-    { headers: { "apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } },
-  );
+  // Verifieer de token door hem te gebruiken voor de DB-query.
+  // RLS laat alleen service_role alle rijen zien; een anon/user-token geeft 0 rijen of 401.
+  // We sturen de query met de inkomende token; als PostgREST het weigert (401/403) → Forbidden.
+  const dbUrl = `${SUPABASE_URL}/rest/v1/user_settings?select=user_id,golfnl_username,golfnl_password&golfnl_username=not.is.null&golfnl_password=not.is.null`;
+  const res = await fetch(dbUrl, {
+    headers: { "apikey": token, "Authorization": `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
   const rows: { user_id: string; golfnl_username: string; golfnl_password: string }[] = await res.json();
 
   const result = await Promise.all(rows.map(async (row) => {
