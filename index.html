@@ -78,7 +78,7 @@
         <details class="adv sync-token-details" id="golfnlDetails">
           <summary>GOLF.NL inloggegevens</summary>
           <div class="adv-body">
-            <p class="hint">Vereist voor de GOLF.NL-sync. Wordt per account opgeslagen in de cloud, zodat toekomstige gebruikers hun eigen gegevens kunnen invullen.</p>
+            <p class="hint">Vereist voor de GOLF.NL-sync. Wordt versleuteld opgeslagen per account.</p>
             <label>E-mailadres
               <input type="email" id="golfnlUsername" placeholder="naam@voorbeeld.nl" autocomplete="off" />
             </label>
@@ -87,6 +87,20 @@
             </label>
             <button type="button" class="btn btn-primary btn-sm" id="golfnlSaveBtn">Opslaan</button>
             <p id="golfnlMsg" class="sync-status"></p>
+          </div>
+        </details>
+        <details class="adv sync-token-details" id="garminDetails">
+          <summary>Garmin Connect inloggegevens</summary>
+          <div class="adv-body">
+            <p class="hint">Vereist voor de Garmin-sync (putts, fairways, penalties per hole). Wordt versleuteld opgeslagen per account. Werkt niet bij accounts met twee-factor-authenticatie.</p>
+            <label>E-mailadres
+              <input type="email" id="garminUsername" placeholder="naam@voorbeeld.nl" autocomplete="off" />
+            </label>
+            <label>Wachtwoord
+              <input type="password" id="garminPassword" placeholder="••••••••" autocomplete="new-password" />
+            </label>
+            <button type="button" class="btn btn-primary btn-sm" id="garminSaveBtn">Opslaan</button>
+            <p id="garminMsg" class="sync-status"></p>
           </div>
         </details>
       </div>
@@ -257,6 +271,6 @@
     <button class="tab" data-view="chart"><span class="ico">📈</span>Grafiek</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=10"></script>
+  <script type="module" src="js/app.js?v=11"></script>
 </body>
 </html>

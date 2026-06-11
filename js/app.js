@@ -2,10 +2,10 @@ import {
   initDb, getMode, getRounds, addRound, updateRound, deleteRound,
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
   getUser, signIn, signOut, onAuthChange, triggerWorkflow,
-  loadUserSettings, saveGolfnlCredentials,
-} from "./db.js?v=10";
-import { computeStats } from "./stats.js?v=10";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=10";
+  loadUserSettings, saveGolfnlCredentials, saveGarminCredentials,
+} from "./db.js?v=11";
+import { computeStats } from "./stats.js?v=11";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -592,6 +592,28 @@ async function main() {
       msg.className = "sync-status ok";
       $("#golfnlPassword").value = "";
       $("#golfnlDetails").open = false;
+    } catch (err) {
+      msg.textContent = "Opslaan mislukt: " + (err.message || err);
+      msg.className = "sync-status err";
+    }
+    setTimeout(() => { msg.textContent = ""; }, 4000);
+  });
+
+  $("#garminSaveBtn")?.addEventListener("click", async () => {
+    const username = $("#garminUsername").value.trim();
+    const password = $("#garminPassword").value;
+    const msg = $("#garminMsg");
+    if (!username || !password) {
+      msg.textContent = "Vul e-mailadres en wachtwoord in.";
+      msg.className = "sync-status err";
+      return;
+    }
+    try {
+      await saveGarminCredentials(username, password);
+      msg.textContent = "✓ Opgeslagen.";
+      msg.className = "sync-status ok";
+      $("#garminPassword").value = "";
+      $("#garminDetails").open = false;
     } catch (err) {
       msg.textContent = "Opslaan mislukt: " + (err.message || err);
       msg.className = "sync-status err";

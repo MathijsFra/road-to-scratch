@@ -23,8 +23,7 @@ jobs:
 
       - name: Sync Garmin -> Supabase
         env:
-          GARMIN_TOKEN: ${{ secrets.GARMIN_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          GOLF_USER_ID: ${{ secrets.GOLF_USER_ID }}
+          LOG_LEVEL: DEBUG
         run: python scripts/sync_garmin.py

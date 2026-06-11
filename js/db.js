@@ -268,6 +268,25 @@ export async function saveGolfnlCredentials(username, password) {
   }
 }
 
+// Slaat Garmin-credentials op via de Edge Function (die het wachtwoord versleutelt).
+export async function saveGarminCredentials(username, password) {
+  if (mode !== "supabase") return;
+  const token = await accessToken();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/save-garmin-creds`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "apikey": SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+}
+
 // Triggert een GitHub Actions workflow via de Edge Function (geen PAT in de browser).
 export async function triggerWorkflow(workflowFile) {
   if (mode !== "supabase") throw new Error("Sync vereist een cloud-verbinding.");
