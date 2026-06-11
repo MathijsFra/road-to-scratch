@@ -19,7 +19,6 @@ import os
 import sys
 import re
 import json
-import base64
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -55,10 +54,6 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
 # Aan welk account (auth user-id) de rondes gekoppeld worden.
 GOLF_USER_ID = os.environ.get("GOLF_USER_ID", "")
-# Optionele sleutel voor AES-256-GCM-versleuteling van GOLF.NL-wachtwoorden in Supabase.
-# Stel dit in als GitHub Actions secret én als Supabase Edge Function secret (zelfde waarde).
-# Genereer met: python3 -c "import secrets; print(secrets.token_hex(32))"
-GOLF_ENCRYPT_KEY = os.environ.get("GOLF_ENCRYPT_KEY", "")
 
 # Browser-achtige user agent helpt soms tegen simpele bot-checks.
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -271,36 +266,17 @@ def supabase_headers() -> dict:
     }
 
 
-def decrypt_password(ciphertext: str) -> str:
-    """Decrypteert een AES-256-GCM-versleuteld wachtwoord (formaat: base64(iv||ct+tag)).
-    Als GOLF_ENCRYPT_KEY niet ingesteld is of decryptie mislukt, wordt de waarde
-    als plaintext teruggegeven (backwards compat voor nog niet-versleutelde wachtwoorden)."""
-    if not GOLF_ENCRYPT_KEY:
-        return ciphertext
-    try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        data = base64.b64decode(ciphertext)
-        iv, ct_tag = data[:12], data[12:]
-        return AESGCM(bytes.fromhex(GOLF_ENCRYPT_KEY)).decrypt(iv, ct_tag, None).decode()
-    except Exception:  # noqa: BLE001
-        return ciphertext  # nog plaintext in DB: gebruik as-is
-
-
 def sb_get_user_settings() -> list[dict]:
-    """Haalt alle accounts op die GOLF.NL-credentials hebben ingesteld.
-    Decrypteert het wachtwoord als GOLF_ENCRYPT_KEY is ingesteld."""
+    """Haalt alle accounts met ontsleutelde GOLF.NL-credentials op via de Edge Function.
+    De Edge Function doet de AES-256-GCM-decryptie server-side; het sync-script
+    heeft geen eigen encryptiesleutel nodig."""
     resp = request_with_retry(
         "GET",
-        f"{SUPABASE_URL}/rest/v1/user_settings"
-        "?select=user_id,golfnl_username,golfnl_password"
-        "&golfnl_username=not.is.null&golfnl_password=not.is.null",
-        headers=supabase_headers(),
+        f"{SUPABASE_URL}/functions/v1/get-golfnl-creds",
+        headers={"Authorization": f"Bearer {SUPABASE_KEY}"},
+        timeout=30,
     )
-    rows = resp.json()
-    for row in rows:
-        if row.get("golfnl_password"):
-            row["golfnl_password"] = decrypt_password(row["golfnl_password"])
-    return rows
+    return resp.json()
 
 
 def existing_rounds(user_id: str) -> list[dict]:
