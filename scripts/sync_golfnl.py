@@ -114,17 +114,26 @@ HOLES_THRESHOLD = 70
 
 
 def golfnl_fetch_scores(session: requests.Session) -> list[dict]:
-    """Haalt de scores-partial op en parseert 'm naar rondes."""
-    log.debug("Actieve cookies: %s", [c.name for c in session.cookies])
-    # Bezoek eerst de scores-pagina — Sitecore bouwt hierbij de sessie-context op
-    # die het AJAX-endpoint nodig heeft om de gebruiker te herkennen.
-    request_with_retry("GET", SCORES_PAGE, session=session,
-                       headers={"Referer": "https://mijn.golf.nl/dashboard"})
-    log.debug("Cookies na scores-pagina: %s", [c.name for c in session.cookies])
-    r = request_with_retry("GET", SCORES_URL, session=session, headers={
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": SCORES_PAGE,
-    })
+    """Haalt de scores op. Probeert eerst de AJAX-partial; valt terug op de
+    volledige scores-pagina (die wél correct auth-cookies accepteert)."""
+    # Stap 1: probeer het AJAX-endpoint.
+    try:
+        r = request_with_retry("GET", SCORES_URL, session=session, headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": SCORES_PAGE,
+        })
+        rounds = parse_scores_html(r.text)
+        if rounds:
+            log.debug("Scores opgehaald via AJAX-endpoint (%d rondes).", len(rounds))
+            return rounds
+        log.debug("AJAX-endpoint gaf lege lijst; val terug op volledige pagina.")
+    except Exception as e:
+        log.debug("AJAX-endpoint mislukt (%s); val terug op volledige pagina.", e)
+
+    # Stap 2: volledige scores-pagina (server-side HTML, werkt altijd als de
+    # sessie geldig is).
+    r = request_with_retry("GET", SCORES_PAGE, session=session,
+                           headers={"Referer": "https://mijn.golf.nl/dashboard"})
     rounds = parse_scores_html(r.text)
     if not rounds:
         log.warning("Geen rondes gevonden in de scores-HTML "
