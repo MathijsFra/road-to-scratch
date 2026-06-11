@@ -15,3 +15,5 @@
 
 export const SUPABASE_URL = "https://ptrccpfqnvygrqmsykob.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_mY2XiMffONLDlVLDOnkTqw_vEgP9Iwd";
+
+export const GITHUB_REPO = "mathijsfra/golf-tracker";

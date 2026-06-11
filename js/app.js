@@ -1,10 +1,11 @@
 import {
   initDb, getMode, getRounds, addRound, updateRound, deleteRound,
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
-  getUser, signIn, signOut, onAuthChange,
-} from "./db.js?v=4";
-import { computeStats } from "./stats.js?v=4";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=4";
+  getUser, signIn, signOut, onAuthChange, triggerWorkflow,
+  getGithubToken, saveGithubToken,
+} from "./db.js?v=5";
+import { computeStats } from "./stats.js?v=5";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=5";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -510,6 +511,11 @@ function showApp(show) {
   $("#main").style.display = show ? "" : "none";
   document.querySelector(".tabbar").style.display = show ? "" : "none";
   $("#loginScreen").hidden = show;
+  const syncSection = $("#syncSection");
+  if (syncSection) {
+    syncSection.hidden = !(show && getMode() === "supabase");
+    if (show) refreshSyncTokenUI();
+  }
 }
 
 async function onLogin(e) {
@@ -526,6 +532,37 @@ async function onLogin(e) {
     msg.className = "form-msg err";
   } finally {
     $("#loginBtn").disabled = false;
+  }
+}
+
+// ---------- sync ----------
+function refreshSyncTokenUI() {
+  const hasToken = !!getGithubToken();
+  const details = $("#syncTokenDetails");
+  if (details) details.open = !hasToken;
+}
+
+async function onSync(workflowFile, btn, statusEl) {
+  btn.disabled = true;
+  statusEl.textContent = "Gestart…";
+  statusEl.className = "sync-status";
+  try {
+    await triggerWorkflow(workflowFile);
+    statusEl.textContent = "✓ Sync afgetrapt — klaar over ~1 minuut.";
+    statusEl.className = "sync-status ok";
+  } catch (err) {
+    if (err.message === "no-token") {
+      statusEl.textContent = "Geen token — stel hem in via 'GitHub token' hieronder.";
+      statusEl.className = "sync-status err";
+      const details = $("#syncTokenDetails");
+      if (details) details.open = true;
+    } else {
+      statusEl.textContent = "Mislukt: " + (err.message || err);
+      statusEl.className = "sync-status err";
+    }
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { statusEl.textContent = ""; }, 8000);
   }
 }
 
@@ -546,6 +583,23 @@ async function main() {
   $("#clearHolesBtn").addEventListener("click", () => buildHolesGrid([]));
   $("#loginForm").addEventListener("submit", onLogin);
   $("#logoutBtn").addEventListener("click", () => signOut());
+
+  const syncStatus = $("#syncStatus");
+  $("#syncGolfnlBtn")?.addEventListener("click", () =>
+    onSync("sync-golfnl.yml", $("#syncGolfnlBtn"), syncStatus));
+  $("#syncGarminBtn")?.addEventListener("click", () =>
+    onSync("sync-garmin.yml", $("#syncGarminBtn"), syncStatus));
+  $("#syncTokenSaveBtn")?.addEventListener("click", () => {
+    const val = $("#syncTokenInput").value.trim();
+    const msg = $("#syncTokenMsg");
+    if (!val) { msg.textContent = "Vul een token in."; msg.className = "sync-status err"; return; }
+    saveGithubToken(val);
+    $("#syncTokenInput").value = "";
+    msg.textContent = "✓ Token opgeslagen.";
+    msg.className = "sync-status ok";
+    refreshSyncTokenUI();
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+  });
 
   resetForm();
 

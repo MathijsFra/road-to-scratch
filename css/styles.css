@@ -321,6 +321,17 @@ textarea { resize: vertical; }
 
 .mini-select { width: auto; padding: 7px 30px 7px 12px; font-size: 0.85rem; }
 
+/* ---------- Sync section ---------- */
+.sync-section { margin-top: 8px; }
+.sync-row { display: flex; gap: 10px; }
+.sync-row .btn { flex: 1; }
+.sync-status { font-size: 0.85rem; margin: 6px 0 0; min-height: 1.2em; color: var(--muted); }
+.sync-status.ok { color: var(--green-600); }
+.sync-status.err { color: var(--danger); }
+.sync-token-details { margin-top: 4px; }
+.sync-token-row { display: flex; gap: 8px; margin-top: 8px; }
+.sync-token-row input { flex: 1; }
+
 /* ---------- Tab bar ---------- */
 .tabbar {
   position: fixed;

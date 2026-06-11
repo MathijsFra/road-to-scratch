@@ -67,6 +67,26 @@
 
       <h2 class="section-title">Laatste rondes</h2>
       <div id="recentList" class="round-list"></div>
+
+      <div class="sync-section" id="syncSection" hidden>
+        <h2 class="section-title">Synchroniseren</h2>
+        <div class="sync-row">
+          <button class="btn btn-ghost btn-sm" id="syncGolfnlBtn">↻ GOLF.NL</button>
+          <button class="btn btn-ghost btn-sm" id="syncGarminBtn">↻ Garmin</button>
+        </div>
+        <p id="syncStatus" class="sync-status"></p>
+        <details class="adv sync-token-details" id="syncTokenDetails">
+          <summary>GitHub token</summary>
+          <div class="adv-body">
+            <p class="hint">Maak aan op github.com/settings/tokens — fine-grained PAT, alleen Actions: write op golf-tracker. Wordt alleen lokaal opgeslagen, staat nooit in de code.</p>
+            <div class="sync-token-row">
+              <input type="password" id="syncTokenInput" placeholder="github_pat_…" autocomplete="off" />
+              <button type="button" class="btn btn-primary btn-sm" id="syncTokenSaveBtn">Opslaan</button>
+            </div>
+            <p id="syncTokenMsg" class="sync-status"></p>
+          </div>
+        </details>
+      </div>
     </section>
 
     <!-- ROUNDS -->
@@ -234,6 +254,6 @@
     <button class="tab" data-view="chart"><span class="ico">📈</span>Grafiek</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=4"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>

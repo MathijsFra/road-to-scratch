@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js?v=4";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, GITHUB_REPO } from "./config.js?v=5";
 
 // De 10 bekende startrondes (datum als ISO yyyy-mm-dd).
 export const SEED_ROUNDS = [
@@ -238,6 +238,32 @@ export async function resolveScreenshot(value) {
     return data.signedUrl;
   }
   return value;
+}
+
+const GH_TOKEN_KEY = "golf_github_token";
+export const getGithubToken = () => localStorage.getItem(GH_TOKEN_KEY) || "";
+export const saveGithubToken = (t) => localStorage.setItem(GH_TOKEN_KEY, t.trim());
+
+// Triggert een GitHub Actions workflow dispatch.
+export async function triggerWorkflow(workflowFile) {
+  const token = getGithubToken();
+  if (!token) throw new Error("no-token");
+  const res = await fetch(
+    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${workflowFile}/dispatches`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref: "main" }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub API ${res.status}`);
+  }
 }
 
 // Roept de Edge Function aan die Claude de screenshots laat uitlezen.
