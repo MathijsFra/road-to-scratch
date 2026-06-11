@@ -1,157 +1,147 @@
-# Uitrol-stappenplan — GitHub Pages + Supabase
+# Uitrol-stappenplan — GitHub Pages + Supabase (met login)
 
-Volg de fases in volgorde. De **kern** (fase 1–5) zet de werkende app online.
-Fase 6–9 voegen de optionele lagen toe (AI-screenshots, auto-sync). Je kunt na
-elke fase stoppen en later verder.
+De app is **privé met login**: elke gebruiker ziet alleen z'n eigen rondes.
+De site is publiek bereikbaar, maar zonder inloggen zie/wijzig je niets.
 
-Benodigd: een GitHub-account, een Supabase-account, en (voor de sync-lagen)
-Python — die heb je al, want de scripts draaiden lokaal.
-
----
-
-## Fase 1 — Supabase database
-
-1. Ga naar <https://supabase.com> → **Start your project** → log in.
-2. **New project**: naam `golf-tracker`, kies een database-wachtwoord (bewaren),
-   region **Central EU (Frankfurt)**. Klik **Create** en wacht ~2 min.
-3. Links **SQL Editor** → **+ New query**. Open [`supabase/schema.sql`](../supabase/schema.sql),
-   kopieer **alles**, plak, klik **Run**. → maakt de tabel `rounds`, RLS, de
-   storage-bucket `round-screenshots`, en je 10 startrondes. Je ziet "Success".
-4. ⚙️ **Project Settings → API**. Kopieer:
-   - **Project URL** (bv. `https://abcxyz.supabase.co`)
-   - **anon `public`** key (lange `eyJ…`-string)
+Volg de fases in volgorde. **Kern** = fase 1–6 (werkende, beveiligde app).
+**Optioneel** = fase 7–10 (AI-screenshots, auto-sync).
 
 ---
 
-## Fase 2 — App configureren
+## Fase 1 — Supabase project + database
 
-1. Open [`js/config.js`](../js/config.js) en vul je twee waarden in:
-   ```js
-   export const SUPABASE_URL = "https://abcxyz.supabase.co";
-   export const SUPABASE_ANON_KEY = "eyJhbGciOi...";
-   ```
-2. Bewaar. (De anon-key hoort publiek te zijn; beveiliging zit in de RLS uit fase 1.)
+1. <https://supabase.com> → **New project** (`golf-tracker`, region Frankfurt,
+   wachtwoord bewaren). Wacht ~2 min.
+2. **SQL Editor** → **+ New query** → plak heel [`supabase/schema.sql`](../supabase/schema.sql) → **Run**.
+3. Nieuwe query → plak heel [`supabase/auth.sql`](../supabase/auth.sql) → **Run**.
+   (Zet per-gebruiker beveiliging aan en maakt screenshots privé.)
+4. ⚙️ **Project Settings → API** → kopieer en bewaar:
+   - **Project URL** (`https://abcxyz.supabase.co`)
+   - **anon `public`** key → voor de frontend (mag publiek)
+   - **`service_role`** key → **alleen** voor GitHub Actions (NOOIT in de frontend!)
 
 ---
 
-## Fase 3 — Naar GitHub pushen
+## Fase 2 — Login instellen + jouw account
 
-**Optie A — via de website (geen git nodig):**
-1. <https://github.com> → **+** → **New repository** → naam `golf-tracker` →
-   **Public** → **Create repository**.
-2. Op de lege repo: **uploading an existing file** → sleep **de hele inhoud** van
-   `C:\Users\mathi\Golf tracker` erin (incl. mappen `css`, `js`, `supabase`,
-   `scripts`, `docs`, `.github`) → **Commit changes**.
+1. **Authentication → Providers → Email**: zet **Enable** aan. Zet
+   **"Confirm email"** uit (handiger voor een persoonlijk account).
+2. **Authentication → Users → Add user → Create new user**: vul je e-mail +
+   wachtwoord in (dit is je login voor de app).
+3. **Signups uitzetten** zodat niemand anders een account maakt:
+   **Authentication → Providers → Email → "Allow new users to sign up"** uit.
+   (Wil je later vrienden toevoegen: zet dit weer aan, of voeg ze handmatig toe
+   via *Add user*. Ieder krijgt automatisch z'n eigen afgeschermde data.)
+4. Pak je **User UID**: **Authentication → Users** → klik je gebruiker → kopieer
+   **User UID** (een uuid). Die heb je straks nodig als `GOLF_USER_ID`, en om je
+   bestaande startdata te claimen:
+   - **SQL Editor** → `update public.rounds set user_id = 'JOUW-USER-UID' where user_id is null;` → **Run**.
+   - (Of laat de startdata weg en laat de GOLF.NL-sync 'm vullen.)
 
-**Optie B — via PowerShell (git):**
-```powershell
-cd "C:\Users\mathi\Golf tracker"
-git init
-git add .
-git commit -m "Golf progressie tracker"
-git branch -M main
-git remote add origin https://github.com/<jouwnaam>/golf-tracker.git
-git push -u origin main
+---
+
+## Fase 3 — App configureren
+
+Vul in [`js/config.js`](../js/config.js) je Project URL + de **anon** key
+(niet de service_role!):
+```js
+export const SUPABASE_URL = "https://abcxyz.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOi...anon...";
 ```
 
-> ⚠️ **Let op (publieke repo, geen login):** de app heeft geen gebruikersaccount.
-> Iedereen die je Pages-URL én de anon-key kent, kan via de RLS-policy je rondes
-> lezen/wijzigen. Voor een persoonlijke tracker met een obscure URL is dat meestal
-> prima. Wil je het echt afschermen, dan voegen we later Supabase Auth toe.
+---
+
+## Fase 4 — Naar GitHub (doet Claude, of zelf)
+
+De repo staat al op `https://github.com/<jouwnaam>/golf-tracker`. Na wijzigingen
+aan `config.js` push je opnieuw:
+```powershell
+cd "C:\Users\mathi\Golf tracker"
+git add -A; git commit -m "config + beveiliging"; git push
+```
+(Of laat Claude het pushen.)
 
 ---
 
-## Fase 4 — GitHub Pages aanzetten
+## Fase 5 — GitHub Pages
 
-1. Repo → **Settings** → links **Pages**.
-2. **Source**: *Deploy from a branch* · **Branch**: `main` · map `/ (root)` → **Save**.
-3. Na ~1 min staat de app op `https://<jouwnaam>.github.io/golf-tracker/`.
-   Open die URL → badge rechtsboven hoort **☁ Cloud** te tonen.
+Repo → **Settings → Pages** → Source *Deploy from a branch*, Branch `main` / root
+→ **Save**. Na ~1 min: `https://<jouwnaam>.github.io/golf-tracker/`.
 
 ---
 
-## Fase 5 — Op je iPhone (PWA)
+## Fase 6 — Op je iPhone
 
-1. Open de Pages-URL in **Safari**.
-2. Deel-knop → **Zet op beginscherm**. Je krijgt een app-icoon en fullscreen.
-
-> **Tot hier heb je een volledig werkende app**: handmatig rondes invoeren (incl.
-> per-hole raster) en alles synct via Supabase op al je apparaten. De rest is extra.
+Open de Pages-URL in Safari → je krijgt het **inlogscherm** → log in met je
+account uit fase 2. Daarna deel-knop → **Zet op beginscherm**. ✅ Beveiligde
+app, klaar voor gebruik.
 
 ---
 
-## Fase 6 — AI-screenshots (optioneel)
+## Fase 7 — AI-screenshots (optioneel)
 
-Laat Claude je GOLF.NL-screenshots uitlezen. Vereist een
-[Anthropic API-key](https://console.anthropic.com) (kost een paar cent per ronde).
-
-1. **Edge Function deployen — via het dashboard (geen installatie):**
-   - Supabase → links **Edge Functions** → **Create a function** (via editor).
-   - Naam: `parse-round`. Wis de voorbeeldcode, plak de **hele** inhoud van
-     [`supabase/functions/parse-round/index.ts`](../supabase/functions/parse-round/index.ts).
-   - Zet **Verify JWT** / "Enforce JWT" **uit** in de functie-instellingen.
-   - **Deploy**.
-   - **Edge Functions → Secrets** → **Add new secret**:
-     `ANTHROPIC_API_KEY` = `sk-ant-...` → **Save**.
-
-   *Alternatief via CLI:* `supabase functions deploy parse-round --no-verify-jwt`
-   en `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`
-
-2. Herlaad de app → bij "Ronde toevoegen" verschijnt de knop **✨ Lees screenshots met AI**.
+1. Supabase → **Edge Functions → Create a function** → naam `parse-round` →
+   plak heel [`supabase/functions/parse-round/index.ts`](../supabase/functions/parse-round/index.ts).
+   **Laat "Verify JWT" AAN** (zo kan alleen een ingelogde gebruiker de functie
+   aanroepen — geen misbruik van je Anthropic-tegoed). **Deploy**.
+2. **Edge Functions → Secrets** → `ANTHROPIC_API_KEY` = `sk-ant-...`.
+3. Herlaad de app → bij "Ronde toevoegen" verschijnt **✨ Lees screenshots met AI**.
 
 ---
 
-## Fase 7 — Automatische GOLF.NL-sync (optioneel)
+## Fase 8 — Auto-sync GOLF.NL (optioneel)
 
-1. Repo → **Settings → Secrets and variables → Actions → New repository secret**.
-   Maak deze vier:
-   - `GOLFNL_USERNAME` = je GOLF.NL e-mail
-   - `GOLFNL_PASSWORD` = je GOLF.NL-wachtwoord
-   - `SUPABASE_URL` = zelfde als in config.js
-   - `SUPABASE_ANON_KEY` = zelfde als in config.js
-2. Tabblad **Actions** → workflow **Sync GOLF.NL** → **Run workflow** (test).
-   Daarna draait hij elke dag automatisch.
+Repo → **Settings → Secrets and variables → Actions → New repository secret**:
+- `GOLFNL_USERNAME`, `GOLFNL_PASSWORD` — je GOLF.NL-login
+- `SUPABASE_URL` — Project URL
+- `SUPABASE_SERVICE_KEY` — de **service_role** key (server-side, omzeilt RLS)
+- `GOLF_USER_ID` — je User UID uit fase 2
 
----
-
-## Fase 8 — Automatische Garmin-sync (optioneel)
-
-1. **Token minten** (eenmalig, lokaal):
-   ```powershell
-   cd "C:\Users\mathi\Golf tracker"
-   pip install -r scripts/requirements.txt
-   python scripts/garmin_login.py
-   ```
-   Vul e-mail/wachtwoord/MFA in → kopieer de geprinte token-string.
-2. Repo → **Settings → Secrets and variables → Actions** → secret
-   `GARMIN_TOKEN` = die token-string. (`SUPABASE_URL`/`SUPABASE_ANON_KEY` heb je al uit fase 7.)
-3. **Actions** → **Sync Garmin** → **Run workflow** (test).
-   Draait dagelijks net ná de GOLF.NL-sync.
+Dan **Actions → Sync GOLF.NL → Run workflow** om te testen.
 
 ---
 
-## Fase 9 — Foutmeldingen per e-mail
+## Fase 9 — Auto-sync Garmin (optioneel)
 
-GitHub → avatar → **Settings → Notifications → Actions** → vink
-**"Send notifications for failed workflows only"** aan. Bij een rode (mislukte)
-sync krijg je dan automatisch mail.
+1. Lokaal: `pip install -r scripts/requirements.txt` → `python scripts/garmin_login.py`
+   → kopieer het token.
+2. Actions-secret `GARMIN_TOKEN` = dat token. (`SUPABASE_URL`,
+   `SUPABASE_SERVICE_KEY`, `GOLF_USER_ID` heb je al uit fase 8.)
+3. **Actions → Sync Garmin → Run workflow**.
 
 ---
 
-## Volgorde-overzicht van secrets
+## Fase 10 — Foutmeldingen per e-mail
 
-| Waar | Secret | Waarde |
+GitHub → avatar → **Settings → Notifications → Actions** → "Send notifications
+for failed workflows only" aanvinken.
+
+---
+
+## Waar elke sleutel hoort
+
+| Waar | Sleutel | Welke |
 |---|---|---|
-| `js/config.js` (in repo, publiek) | SUPABASE_URL, SUPABASE_ANON_KEY | Project URL + anon key |
+| `js/config.js` (publiek) | SUPABASE_URL, SUPABASE_ANON_KEY | URL + **anon** |
 | Supabase → Edge Functions → Secrets | ANTHROPIC_API_KEY | `sk-ant-...` |
-| GitHub → Actions secrets | GOLFNL_USERNAME, GOLFNL_PASSWORD | GOLF.NL-login |
-| GitHub → Actions secrets | GARMIN_TOKEN | uit `garmin_login.py` |
-| GitHub → Actions secrets | SUPABASE_URL, SUPABASE_ANON_KEY | zelfde als config.js |
+| GitHub → Actions secrets | SUPABASE_URL, **SUPABASE_SERVICE_KEY**, GOLF_USER_ID | URL + **service_role** + je UID |
+| GitHub → Actions secrets | GOLFNL_USERNAME, GOLFNL_PASSWORD, GARMIN_TOKEN | logins |
+
+> 🔑 **service_role-key**: geeft volledige DB-toegang. Staat veilig in GitHub
+> Actions-secrets (versleuteld, niet zichtbaar in logs, niet beschikbaar voor
+> fork-PR's). Zet 'm **nooit** in `js/config.js` of ergens in de frontend.
+
+## Vrienden toevoegen (later)
+
+Werkt het goed en wil je vrienden laten meedoen? Zet signups aan (fase 2.3) of
+voeg ze toe via **Add user**. Door de per-gebruiker RLS ziet ieder alleen z'n
+eigen rondes. Willen zij ook auto-sync? Dan draait ieder z'n eigen sync met
+*hun* `GOLF_USER_ID` + GOLF.NL/Garmin-login (bv. een eigen fork of extra workflow).
 
 ## Snelle probleemoplossing
 
-- Badge blijft **● Lokaal** → `config.js` niet (goed) ingevuld of niet ge-her-upload.
-- AI-knop doet niets → `ANTHROPIC_API_KEY`-secret mist of *Verify JWT* staat nog aan.
-- Sync rood (Actions) → open de run-log; check de secrets en (bij Garmin) of het
-  token nog geldig is / 2FA. CloudFront-403 bij GOLF.NL → draai die sync lokaal.
-- Witte pagina → open via de Pages-URL, niet door `index.html` lokaal te dubbelklikken.
+- Inlogscherm blijft komen → verkeerd wachtwoord, of account niet aangemaakt (fase 2).
+- "Lokaal" i.p.v. inlogscherm → `config.js` niet (goed) ingevuld/gepusht.
+- Sync rood: **"new row violates row-level security"** → `GOLF_USER_ID` ontbreekt
+  of de `SUPABASE_SERVICE_KEY` is per ongeluk de anon-key.
+- AI-knop fout → `ANTHROPIC_API_KEY` mist, of je bent niet ingelogd (Verify JWT).

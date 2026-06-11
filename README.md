@@ -58,11 +58,12 @@ gevuld met je 10 startrondes. De badge rechtsboven toont dan `● Lokaal`.
    ```
 5. Herlaad de app. De badge toont nu `☁ Cloud`.
 
-> **Veiligheid:** de anon-key is bedoeld om publiek in de frontend te staan.
-> Beveiliging gebeurt via RLS-policies in de database. Het meegeleverde schema
-> geeft de anon-rol volledige toegang tot de `rounds`-tabel — prima voor een
-> persoonlijke tracker. Wil je het echt afschermen, voeg dan Supabase Auth toe
-> en wijzig de policy naar bv. `auth.uid() = user_id`.
+> **Veiligheid:** de anon-key mag publiek in de frontend staan. De app gebruikt
+> **Supabase Auth (login)**: draai naast `schema.sql` ook
+> [`supabase/auth.sql`](supabase/auth.sql) voor per-gebruiker RLS — iedereen ziet
+> alleen z'n eigen rondes, en zonder login kun je niets lezen of wijzigen. De
+> scrapers schrijven server-side met de `service_role`-key. Volledige uitrol:
+> zie [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ---
 

@@ -18,9 +18,29 @@
   <header class="app-header">
     <div class="header-inner">
       <h1>⛳ Golf Tracker</h1>
-      <span id="dbBadge" class="db-badge" title="Opslagmodus">…</span>
+      <div class="header-right">
+        <span id="dbBadge" class="db-badge" title="Opslagmodus">…</span>
+        <button id="logoutBtn" class="logout-btn" hidden>Uitloggen</button>
+      </div>
     </div>
   </header>
+
+  <!-- Inlogscherm (alleen in cloud-modus, getoond als je niet ingelogd bent) -->
+  <div id="loginScreen" class="login-screen" hidden>
+    <form id="loginForm" class="login-card" autocomplete="on">
+      <div class="login-logo">⛳</div>
+      <h2>Golf Tracker</h2>
+      <p class="login-sub">Log in om je rondes te bekijken.</p>
+      <label>E-mail
+        <input type="email" id="loginEmail" autocomplete="username" required />
+      </label>
+      <label>Wachtwoord
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-primary" id="loginBtn">Inloggen</button>
+      <p id="loginMsg" class="form-msg"></p>
+    </form>
+  </div>
 
   <main id="main">
     <!-- DASHBOARD -->

@@ -40,19 +40,24 @@ python scripts/sync_golfnl.py pad\naar\scores-data.html
 $env:GOLFNL_USERNAME = "jouw@email.nl"
 $env:GOLFNL_PASSWORD = "je-wachtwoord"
 $env:SUPABASE_URL = "https://xxxx.supabase.co"
-$env:SUPABASE_ANON_KEY = "eyJ..."
+$env:SUPABASE_SERVICE_KEY = "eyJ...service_role..."   # Settings -> API -> service_role
+$env:GOLF_USER_ID = "jouw-auth-user-uid"              # Authentication -> Users -> User UID
 python scripts/sync_golfnl.py
 ```
+
+> De sync schrijft met de **service_role**-key (omzeilt RLS) en koppelt rondes aan
+> `GOLF_USER_ID`. De anon-key kan door de login-beveiliging niet meer schrijven.
 
 ## 3. Gepland via GitHub Actions
 
 De workflow [`.github/workflows/sync-golfnl.yml`](../.github/workflows/sync-golfnl.yml)
 draait elke dag (en met een handmatige knop).
 
-1. Push de repo (zit al klaar). GitHub → repo → **Settings → Secrets and variables
-   → Actions → New repository secret**. Maak er vier:
+1. GitHub → repo → **Settings → Secrets and variables → Actions → New repository secret**:
    - `GOLFNL_USERNAME` · `GOLFNL_PASSWORD`
-   - `SUPABASE_URL` · `SUPABASE_ANON_KEY` (zelfde als in `js/config.js`)
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY` (de service_role-key — server-side, nooit in de frontend)
+   - `GOLF_USER_ID` (je auth User UID)
 2. Tabblad **Actions** → **Sync GOLF.NL** → **Run workflow** om te testen.
 
 ## Als het misgaat

@@ -25,5 +25,6 @@ jobs:
           GOLFNL_USERNAME: ${{ secrets.GOLFNL_USERNAME }}
           GOLFNL_PASSWORD: ${{ secrets.GOLFNL_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOLF_USER_ID: ${{ secrets.GOLF_USER_ID }}
         run: python scripts/sync_golfnl.py

@@ -1,6 +1,7 @@
 import {
   initDb, getMode, getRounds, addRound, updateRound, deleteRound,
-  processImage, saveScreenshot, parseScreenshots,
+  processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
+  getUser, signIn, signOut, onAuthChange,
 } from "./db.js";
 import { computeStats } from "./stats.js";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js";
@@ -169,7 +170,7 @@ function roundCard(r, withActions) {
         ${gcell(r.bunker_saves, "Saves")}
       </div>` : ""}
       ${hd.length ? holesTable(hd) : ""}
-      ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
+      ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a class="shot-link" data-shot="${esc(u)}" target="_blank" rel="noopener"><img alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
       ${r.notes ? `<div class="round-notes">${esc(r.notes)}</div>` : ""}
       ${!garmin && !hd.length && !shots.length && !r.notes ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
       ${withActions ? `<div class="detail-actions">
@@ -264,6 +265,20 @@ function bindRoundCards(scope) {
       e.stopPropagation();
       if (confirm("Deze ronde verwijderen?")) { await deleteRound(b.dataset.del); await refresh(); }
     }));
+  hydrateShots(scope);
+}
+
+// Zet de juiste (signed) URL op screenshot-thumbnails.
+async function hydrateShots(scope) {
+  for (const a of scope.querySelectorAll(".shot-link[data-shot]")) {
+    try {
+      const url = await resolveScreenshot(a.dataset.shot);
+      if (!url) continue;
+      a.href = url;
+      const img = a.querySelector("img");
+      if (img) img.src = url;
+    } catch (err) { console.warn("screenshot laden mislukt", err); }
+  }
 }
 
 // ---------- charts ----------
@@ -275,11 +290,13 @@ function buildCharts() {
 }
 
 // ---------- screenshots ----------
-function renderShotPreview() {
+async function renderShotPreview() {
   const wrap = $("#shotPreview");
+  const srcs = await Promise.all(pendingShots.map((s) =>
+    s.processed ? Promise.resolve(s.processed.dataUrl) : resolveScreenshot(s.url)));
   wrap.innerHTML = pendingShots.map((s, i) => `
     <div class="shot-item">
-      <img src="${esc(s.processed ? s.processed.dataUrl : s.url)}" alt="screenshot">
+      <img src="${esc(srcs[i] || "")}" alt="screenshot">
       <button type="button" class="shot-del" data-shot="${i}" aria-label="verwijderen">×</button>
     </div>`).join("");
   wrap.querySelectorAll("[data-shot]").forEach((b) =>
@@ -488,6 +505,30 @@ function switchView(view) {
   if (view !== "add" && editingId) resetForm();
 }
 
+// ---------- auth ----------
+function showApp(show) {
+  $("#main").style.display = show ? "" : "none";
+  document.querySelector(".tabbar").style.display = show ? "" : "none";
+  $("#loginScreen").hidden = show;
+}
+
+async function onLogin(e) {
+  e.preventDefault();
+  const msg = $("#loginMsg");
+  msg.textContent = "Inloggen…";
+  msg.className = "form-msg";
+  $("#loginBtn").disabled = true;
+  try {
+    await signIn($("#loginEmail").value.trim(), $("#loginPassword").value);
+    // onAuthChange handelt de rest af (app tonen + data laden).
+  } catch (err) {
+    msg.textContent = "Inloggen mislukt: " + (err.message || err);
+    msg.className = "form-msg err";
+  } finally {
+    $("#loginBtn").disabled = false;
+  }
+}
+
 // ---------- init ----------
 async function main() {
   const mode = await initDb();
@@ -503,9 +544,37 @@ async function main() {
   $("#parseBtn").addEventListener("click", onParse);
   $("#f_holes").addEventListener("change", () => buildHolesGrid(collectHolesGrid()));
   $("#clearHolesBtn").addEventListener("click", () => buildHolesGrid([]));
+  $("#loginForm").addEventListener("submit", onLogin);
+  $("#logoutBtn").addEventListener("click", () => signOut());
 
   resetForm();
-  await refresh();
+
+  if (mode !== "supabase") {       // lokale modus: geen login
+    showApp(true);
+    await refresh();
+    return;
+  }
+
+  // Cloud-modus: login vereist. Reageer op login/logout/sessieherstel.
+  let loaded = false;
+  onAuthChange(async (user) => {
+    $("#logoutBtn").hidden = !user;
+    if (user && !loaded) {
+      loaded = true;
+      showApp(true);
+      $("#loginMsg").textContent = "";
+      await refresh();
+    } else if (!user) {
+      loaded = false;
+      showApp(false);
+    }
+  });
+
+  // Eerste check (bestaande sessie?).
+  const user = await getUser();
+  $("#logoutBtn").hidden = !user;
+  if (user) { loaded = true; showApp(true); await refresh(); }
+  else { showApp(false); }
 }
 
 main().catch((e) => {

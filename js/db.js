@@ -56,9 +56,7 @@ export async function initDb() {
     try {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
       client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      const { error } = await client.from(TABLE).select("id").limit(1);
-      if (error) throw error;
-      mode = "supabase";
+      mode = "supabase";   // dataverkeer is afgeschermd met login (RLS)
     } catch (e) {
       console.warn("Supabase niet beschikbaar, val terug op lokale opslag.", e);
       mode = "local";
@@ -69,6 +67,33 @@ export async function initDb() {
     writeLocal(SEED_ROUNDS.map((r) => ({ ...pick(r), id: crypto.randomUUID() })));
   }
   return mode;
+}
+
+// ---------- Auth (alleen in supabase-modus) ----------
+export async function getUser() {
+  if (mode !== "supabase") return null;
+  const { data } = await client.auth.getUser();
+  return data.user || null;
+}
+
+export async function signIn(email, password) {
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function signOut() {
+  if (mode === "supabase") await client.auth.signOut();
+}
+
+// Roept cb(user|null) aan bij elke login/logout/sessie-wijziging.
+export function onAuthChange(cb) {
+  if (mode !== "supabase") return;
+  client.auth.onAuthStateChange((_event, session) => cb(session?.user || null));
+}
+
+async function accessToken() {
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token || null;
 }
 
 export async function getRounds() {
@@ -150,21 +175,35 @@ export function processImage(file, maxDim = 1400, quality = 0.72) {
   });
 }
 
-// Slaat een verwerkte screenshot op en geeft een URL/dataURL terug.
+// Slaat een verwerkte screenshot op. In de cloud: in je eigen map
+// (<user-id>/<uuid>.jpg) in een privé-bucket; we bewaren het PAD in de DB.
+// Lokaal: de (verkleinde) dataURL inline.
 export async function saveScreenshot(processed) {
   if (mode === "supabase") {
+    const user = await getUser();
+    if (!user) throw new Error("Niet ingelogd.");
     const bytes = Uint8Array.from(atob(processed.base64), (c) => c.charCodeAt(0));
-    const path = `${crypto.randomUUID()}.jpg`;
+    const path = `${user.id}/${crypto.randomUUID()}.jpg`;
     const { error } = await client.storage.from(BUCKET).upload(path, bytes, {
-      contentType: "image/jpeg",
-      upsert: false,
+      contentType: "image/jpeg", upsert: false,
     });
     if (error) throw error;
-    const { data } = client.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    return path;   // pad, niet de URL (bucket is privé)
   }
-  // Lokaal: bewaar de (verkleinde) dataURL inline.
   return processed.dataUrl;
+}
+
+// Zet een opgeslagen screenshot-waarde om naar een toonbare URL.
+// dataURL/http blijft zoals het is; een storage-pad -> tijdelijke signed URL.
+export async function resolveScreenshot(value) {
+  if (!value) return value;
+  if (value.startsWith("data:") || value.startsWith("http")) return value;
+  if (mode === "supabase") {
+    const { data, error } = await client.storage.from(BUCKET).createSignedUrl(value, 3600);
+    if (error) { console.warn("Signed URL mislukt", error); return null; }
+    return data.signedUrl;
+  }
+  return value;
 }
 
 // Roept de Edge Function aan die Claude de screenshots laat uitlezen.
@@ -172,11 +211,12 @@ export async function parseScreenshots(processedImages) {
   if (mode !== "supabase") {
     throw new Error("AI-inlezen vereist een gekoppelde Supabase (zie config.js).");
   }
+  const token = await accessToken();
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/parse-round`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Authorization": `Bearer ${token || SUPABASE_ANON_KEY}`,
       "apikey": SUPABASE_ANON_KEY,
     },
     body: JSON.stringify({

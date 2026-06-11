@@ -40,7 +40,8 @@ ooit wijzigen, geef me dan deze output en ik pas `parse_hole`/`detail_holes` aan
 ```powershell
 $env:GARMIN_TOKEN = "het-token-uit-stap-1"
 $env:SUPABASE_URL = "https://xxxx.supabase.co"
-$env:SUPABASE_ANON_KEY = "eyJ..."
+$env:SUPABASE_SERVICE_KEY = "eyJ...service_role..."
+$env:GOLF_USER_ID = "jouw-auth-user-uid"
 python scripts/sync_garmin.py
 ```
 
@@ -48,7 +49,7 @@ python scripts/sync_garmin.py
 
 [`.github/workflows/sync-garmin.yml`](../.github/workflows/sync-garmin.yml) draait
 dagelijks (iets ná de GOLF.NL-sync) en met een handmatige knop. Benodigde secrets:
-`GARMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
+`GARMIN_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GOLF_USER_ID`.
 
 ## Hoe het matcht
 

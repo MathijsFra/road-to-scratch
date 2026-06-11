@@ -49,7 +49,10 @@ EXTRA_FIELDS = {"scController": "Login", "scAction": "LoginValidate"}  # Sitecor
 GOLFNL_USERNAME = os.environ.get("GOLFNL_USERNAME", "")
 GOLFNL_PASSWORD = os.environ.get("GOLFNL_PASSWORD", "")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+# Server-side schrijven gaat met de service_role-key (omzeilt RLS).
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+# Aan welk account (auth user-id) de rondes gekoppeld worden.
+GOLF_USER_ID = os.environ.get("GOLF_USER_ID", "")
 
 # Browser-achtige user agent helpt soms tegen simpele bot-checks.
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -223,16 +226,16 @@ def iso_date(v) -> str | None:
 # ============================================================
 def supabase_headers() -> dict:
     return {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
     }
 
 
 def existing_keys() -> set:
-    """Haalt bestaande rondes op om dubbele inserts te voorkomen."""
+    """Haalt bestaande rondes van dit account op om dubbele inserts te voorkomen."""
     resp = request_with_retry(
-        "GET", f"{SUPABASE_URL}/rest/v1/rounds?select=date,holes,sd",
+        "GET", f"{SUPABASE_URL}/rest/v1/rounds?select=date,holes,sd&user_id=eq.{GOLF_USER_ID}",
         headers=supabase_headers(),
     )
     return {round_key(r) for r in resp.json()}
@@ -249,8 +252,9 @@ def push_to_supabase(new_rounds: list[dict]) -> int:
         log.info("Niets nieuws om toe te voegen.")
         return 0
 
-    # Interne velden (beginnend met "_") niet meesturen naar de DB.
-    clean = [{k: v for k, v in r.items() if not k.startswith("_")} for r in new_rounds]
+    # Interne velden (beginnend met "_") niet meesturen; koppel aan het account.
+    clean = [{**{k: v for k, v in r.items() if not k.startswith("_")}, "user_id": GOLF_USER_ID}
+             for r in new_rounds]
 
     request_with_retry(
         "POST", f"{SUPABASE_URL}/rest/v1/rounds",
@@ -284,7 +288,10 @@ def main() -> None:
         dry_run(sys.argv[1])
         return
 
-    require_env("GOLFNL_USERNAME", "GOLFNL_PASSWORD", "SUPABASE_URL", "SUPABASE_ANON_KEY")
+    require_env("GOLFNL_USERNAME", "GOLFNL_PASSWORD", "SUPABASE_URL", "GOLF_USER_ID")
+    if not SUPABASE_KEY:
+        log.error("Geen Supabase-key: zet SUPABASE_SERVICE_KEY (aanrader) of SUPABASE_ANON_KEY.")
+        sys.exit(2)
 
     session = requests.Session()
     session.headers.update({"User-Agent": UA, "Accept": "application/json"})

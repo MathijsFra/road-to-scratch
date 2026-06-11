@@ -27,7 +27,8 @@ from golfutil import setup_logging, require_env, request_with_retry, retry_call,
 log = setup_logging("garmin")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+GOLF_USER_ID = os.environ.get("GOLF_USER_ID", "")
 
 
 # ============================================================
@@ -152,15 +153,16 @@ def to_int(v):
 # ============================================================
 def sb_headers() -> dict:
     return {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
     }
 
 
 def sb_get_rounds() -> list[dict]:
     r = request_with_retry(
-        "GET", f"{SUPABASE_URL}/rest/v1/rounds?select=id,date,holes,holes_data",
+        "GET",
+        f"{SUPABASE_URL}/rest/v1/rounds?select=id,date,holes,holes_data&user_id=eq.{GOLF_USER_ID}",
         headers=sb_headers(),
     )
     return r.json()
@@ -228,7 +230,10 @@ def main() -> None:
             print(json.dumps(holes, indent=2, ensure_ascii=False))
         return
 
-    require_env("SUPABASE_URL", "SUPABASE_ANON_KEY")
+    require_env("SUPABASE_URL", "GOLF_USER_ID")
+    if not SUPABASE_KEY:
+        log.error("Geen Supabase-key: zet SUPABASE_SERVICE_KEY (aanrader) of SUPABASE_ANON_KEY.")
+        sys.exit(2)
 
     rounds = sb_get_rounds()
     by_date: dict[str, list] = {}
