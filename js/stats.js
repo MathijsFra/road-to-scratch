@@ -155,7 +155,8 @@ function computePlay(rounds) {
     const t = threePutts(r);
     if (t !== null) tp.push(t * (r.holes === 9 ? 2 : 1));
 
-    if (num(r.penalties) !== null) pen.push(num(r.penalties) * (r.holes === 9 ? 2 : 1));
+    const penVal = penaltiesTotal(r);
+    if (penVal !== null) pen.push(penVal * (r.holes === 9 ? 2 : 1));
 
     const db = doubleBogeys(r);
     if (db !== null) { dbCount += db; dbHoles += r.holes; anyDb = true; }
@@ -188,12 +189,27 @@ function computePar(rounds) {
   };
 }
 
+function puttsTotal(r) {
+  if (num(r.putts) !== null) return num(r.putts);
+  const hd = holesData(r);
+  const vals = hd.map((h) => num(h.putts)).filter((v) => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+}
+
+function penaltiesTotal(r) {
+  if (num(r.penalties) !== null) return num(r.penalties);
+  const hd = holesData(r);
+  const vals = hd.map((h) => num(h.penalties)).filter((v) => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+}
+
 function computeGarmin(rounds) {
   const putts = [];
   let bunkers = 0, saves = 0, anyGarmin = false;
   for (const r of rounds) {
     const factor = r.holes === 9 ? 2 : 1;
-    if (num(r.putts) !== null) { putts.push(num(r.putts) * factor); anyGarmin = true; }
+    const p = puttsTotal(r);
+    if (p !== null) { putts.push(p * factor); anyGarmin = true; }
     if (num(r.bunkers) !== null) { bunkers += num(r.bunkers); anyGarmin = true; }
     if (num(r.bunker_saves) !== null) { saves += num(r.bunker_saves); anyGarmin = true; }
   }

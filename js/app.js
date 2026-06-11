@@ -3,9 +3,9 @@ import {
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
   getUser, signIn, signOut, onAuthChange, triggerWorkflow,
   getGithubToken, saveGithubToken,
-} from "./db.js?v=5";
-import { computeStats } from "./stats.js?v=5";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=5";
+} from "./db.js?v=6";
+import { computeStats } from "./stats.js?v=6";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=6";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -252,7 +252,9 @@ function gcell(v, label) {
   return `<div class="g"><div class="gv">${v != null ? v : "—"}</div><div class="gl">${label}</div></div>`;
 }
 function hasGarmin(r) {
-  return [r.putts, r.penalties, r.bunkers, r.bunker_saves].some((v) => v != null);
+  if ([r.putts, r.penalties, r.bunkers, r.bunker_saves].some((v) => v != null)) return true;
+  const hd = Array.isArray(r.holes_data) ? r.holes_data : [];
+  return hd.some((h) => h.putts != null || h.penalties != null || h.fairway != null);
 }
 
 function bindRoundCards(scope) {
