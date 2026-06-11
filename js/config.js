@@ -13,5 +13,5 @@
 //  (zie supabase/schema.sql).
 // ============================================================
 
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://ptrccpfqnvygrqmsykob.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_mY2XiMffONLDlVLDOnkTqw_vEgP9Iwd";
