@@ -7,26 +7,30 @@ Dit script handelt die code interactief af en slaat het sessie-token
 versleuteld op in Supabase. De dagelijkse sync hergebruikt dat token
 zodat er geen OTP meer nodig is.
 
-Gebruik (éénmalig per account):
+Gebruik (éénmalig per account, door elke gebruiker zelf):
+    pip install -r scripts/requirements.txt
     python scripts/garmin_login.py
 
-Vereiste environment variables (of interactief invullen):
-    SUPABASE_URL          - bijv. https://xxxx.supabase.co
-    SUPABASE_SERVICE_KEY  - service-role key (zie Supabase dashboard)
-    GOLF_USER_ID          - jouw auth-user-ID (zie Supabase > Authentication > Users)
-    GARMIN_EMAIL          - je Garmin-account e-mailadres
-    GARMIN_PASSWORD       - je Garmin-wachtwoord
+Het script vraagt om:
+  - Je Golf Tracker app-login (e-mail + wachtwoord)
+  - Je Garmin Connect-login (e-mail + wachtwoord)
+  - De verificatiecode die Garmin per e-mail stuurt
+
+Geen service keys of technische kennis vereist.
 """
 
 import os
 import sys
 import getpass
 import requests
-from garminconnect import Garmin
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-GOLF_USER_ID = os.environ.get("GOLF_USER_ID", "")
+# Publieke constanten — zelfde als in js/config.js
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://ptrccpfqnvygrqmsykob.supabase.co")
+SUPABASE_ANON_KEY = os.environ.get(
+    "SUPABASE_ANON_KEY",
+    "sb_publishable_mY2XiMffONLDlVLDOnkTqw_vEgP9Iwd",
+)
+
 GARMIN_EMAIL = os.environ.get("GARMIN_EMAIL", "")
 GARMIN_PASSWORD = os.environ.get("GARMIN_PASSWORD", "")
 
@@ -40,66 +44,76 @@ def prompt(label: str, secret: bool = False) -> str:
     return val
 
 
-def main() -> None:
-    global SUPABASE_URL, SUPABASE_KEY, GOLF_USER_ID, GARMIN_EMAIL, GARMIN_PASSWORD
+def supabase_login(email: str, password: str) -> str:
+    """Logt in op Supabase en geeft het JWT terug."""
+    r = requests.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers={"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"},
+        json={"email": email, "password": password},
+        timeout=15,
+    )
+    if not r.ok:
+        msg = r.json().get("error_description") or r.json().get("msg") or r.text
+        print(f"✗ Inloggen op Golf Tracker mislukt: {msg}")
+        sys.exit(1)
+    return r.json()["access_token"]
 
-    if not SUPABASE_URL:
-        SUPABASE_URL = prompt("Supabase URL")
-    if not SUPABASE_KEY:
-        SUPABASE_KEY = prompt("Supabase service key", secret=True)
-    if not GOLF_USER_ID:
-        GOLF_USER_ID = prompt("Jouw Supabase user-ID (Supabase > Authentication > Users)")
+
+def garmin_login(email: str, password: str):
+    """Logt in op Garmin Connect. Vraagt interactief om OTP als dat vereist is."""
+    from garminconnect import Garmin  # importeer laat zodat foutmeldingen duidelijker zijn
+    g = Garmin(email=email, password=password)
+    g.login()
+    return g
+
+
+def save_token(jwt: str, garmin_token_str: str, garmin_email: str) -> None:
+    """Slaat het Garmin-token + e-mailadres versleuteld op via de Edge Function."""
+    r = requests.post(
+        f"{SUPABASE_URL}/functions/v1/save-garmin-token",
+        headers={"Authorization": f"Bearer {jwt}", "Content-Type": "application/json"},
+        json={"token": garmin_token_str, "username": garmin_email},
+        timeout=30,
+    )
+    if not r.ok:
+        print(f"✗ Token opslaan mislukt ({r.status_code}): {r.text}")
+        sys.exit(1)
+
+
+def main() -> None:
+    global GARMIN_EMAIL, GARMIN_PASSWORD
+
+    print("=== Garmin Connect koppelen aan Golf Tracker ===\n")
+
+    # Stap 1: inloggen op de Golf Tracker app
+    print("Stap 1: Golf Tracker app-account")
+    app_email = prompt("App e-mailadres")
+    app_password = prompt("App wachtwoord", secret=True)
+    print("Inloggen op Golf Tracker…")
+    jwt = supabase_login(app_email, app_password)
+    print("✓ Ingelogd bij Golf Tracker.\n")
+
+    # Stap 2: inloggen op Garmin Connect
+    print("Stap 2: Garmin Connect")
     if not GARMIN_EMAIL:
         GARMIN_EMAIL = prompt("Garmin e-mailadres")
     if not GARMIN_PASSWORD:
         GARMIN_PASSWORD = prompt("Garmin wachtwoord", secret=True)
 
     print(f"\nInloggen op Garmin Connect als {GARMIN_EMAIL}…")
-    print("Als je een verificatiecode per e-mail ontvangt, vul die dan in als het script erom vraagt.\n")
+    print("Als Garmin een verificatiecode per e-mail stuurt, vul die dan hieronder in.\n")
 
-    g = Garmin(email=GARMIN_EMAIL, password=GARMIN_PASSWORD)
-    g.login()  # garminconnect vraagt zelf om de OTP als die vereist is
+    g = garmin_login(GARMIN_EMAIL, GARMIN_PASSWORD)
+    print("\n✓ Ingelogd bij Garmin Connect!")
 
-    print("\n✓ Ingelogd bij Garmin!")
-
-    # Serialiseer de sessie naar een token-string.
+    # Stap 3: token opslaan
+    print("Sessietoken opslaan in Supabase…")
     token_str = g.client.dumps()
+    save_token(jwt, token_str, GARMIN_EMAIL)
 
-    # Sla het token versleuteld op via de Edge Function.
-    print("Token opslaan in Supabase…")
-    r = requests.post(
-        f"{SUPABASE_URL}/functions/v1/save-garmin-token",
-        headers={
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={"user_id": GOLF_USER_ID, "token": token_str},
-        timeout=30,
-    )
-    if r.ok:
-        print("✓ Token opgeslagen. De dagelijkse Garmin-sync kan nu draaien zonder OTP.")
-    else:
-        print(f"✗ Opslaan mislukt ({r.status_code}): {r.text}")
-        sys.exit(1)
-
-    # Sla ook het e-mailadres op zodat de app weet welk account gekoppeld is.
-    r2 = requests.patch(
-        f"{SUPABASE_URL}/rest/v1/user_settings?user_id=eq.{GOLF_USER_ID}",
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        },
-        json={"garmin_username": GARMIN_EMAIL},
-        timeout=30,
-    )
-    if not r2.ok:
-        print(f"(Waarschuwing: e-mailadres opslaan mislukt: {r2.status_code})")
-
-    print(f"\nGereed. Account: {GARMIN_EMAIL} | User: {GOLF_USER_ID}")
-    print("Het token wordt na elke succesvolle sync automatisch vernieuwd.")
-    print("Draai dit script opnieuw als de sync meldt dat het token verlopen is.")
+    print("\n✓ Klaar! Garmin is gekoppeld aan je account.")
+    print("  De dagelijkse sync draait voortaan automatisch zonder verificatiecode.")
+    print("  Als het token ooit verloopt, draai dit script opnieuw.")
 
 
 if __name__ == "__main__":

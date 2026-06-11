@@ -92,15 +92,16 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     username = body.username?.trim();
-    password = body.password;
-    if (!username || !password) throw new Error();
+    password = body.password ?? "";
+    if (!username) throw new Error();
   } catch {
-    return json({ error: "username en password zijn verplicht" }, 400);
+    return json({ error: "username is verplicht" }, 400);
   }
 
   try {
-    const encrypted = await encryptPassword(password, ENCRYPT_KEY_HEX);
-    await upsertSettings(user.id, username, encrypted);
+    // Sla wachtwoord alleen op als het niet leeg is (garmin_login.py stuurt soms alleen username).
+    const encrypted = password ? await encryptPassword(password, ENCRYPT_KEY_HEX) : null;
+    await upsertSettings(user.id, username, encrypted ?? "");
     return json({ ok: true });
   } catch (e) {
     return json({ error: "Opslaan mislukt: " + String(e) }, 500);
