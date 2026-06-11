@@ -11,19 +11,24 @@ function holesData(r) {
   return Array.isArray(r.holes_data) ? r.holes_data : [];
 }
 
+const isNonQualifying = (r) => r.notes === "Non-qualifying";
+
 // Bepaalt per ronde of het een exceptionele score (EXS) is.
+// EXS is een WHS-concept dat alleen geldt voor kwalificerende rondes;
+// non-qualifying rondes worden overgeslagen voor EXS én handicap-tracking.
 export function annotateExs(rounds) {
   let prevHcp = null;
   return rounds.map((r) => {
     const sd = num(r.sd);
     let exs = false;
     let diff = null;
-    if (prevHcp !== null && sd !== null) {
+    if (!isNonQualifying(r) && prevHcp !== null && sd !== null) {
       diff = round1(prevHcp - sd);
       exs = diff >= EXS_THRESHOLD;
     }
     const out = { ...r, _exs: exs, _exsDiff: diff };
-    if (num(r.hcp) !== null) prevHcp = num(r.hcp);
+    // Alleen qualifying rondes werken de handicap-voortgang bij.
+    if (!isNonQualifying(r) && num(r.hcp) !== null) prevHcp = num(r.hcp);
     return out;
   });
 }
@@ -82,10 +87,10 @@ export function computeStats(rounds) {
 
   let currentHcp = null, startHcp = null;
   for (let i = n - 1; i >= 0; i--) {
-    if (num(annotated[i].hcp) !== null) { currentHcp = num(annotated[i].hcp); break; }
+    if (!isNonQualifying(annotated[i]) && num(annotated[i].hcp) !== null) { currentHcp = num(annotated[i].hcp); break; }
   }
   for (let i = 0; i < n; i++) {
-    if (num(annotated[i].hcp) !== null) { startHcp = num(annotated[i].hcp); break; }
+    if (!isNonQualifying(annotated[i]) && num(annotated[i].hcp) !== null) { startHcp = num(annotated[i].hcp); break; }
   }
   const progress = (startHcp !== null && currentHcp !== null) ? round1(startHcp - currentHcp) : null;
 
