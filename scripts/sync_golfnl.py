@@ -281,10 +281,6 @@ def existing_rounds(user_id: str) -> list[dict]:
     return resp.json()
 
 
-def existing_keys(user_id: str) -> set:
-    """Haalt bestaande rondes van dit account op om dubbele inserts te voorkomen."""
-    return {round_key(r) for r in existing_rounds(user_id)}
-
 
 def round_key(r: dict):
     sd = r.get("sd")
@@ -328,6 +324,28 @@ def dry_run(path: str) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def derive_double_bogeys(holes_data: list[dict]) -> int | None:
+    """Telt holes waar score - par >= 2 (double bogey of slechter)."""
+    count = 0
+    for h in holes_data:
+        p, s = h.get("par"), h.get("score")
+        if p is not None and s is not None:
+            if s - p >= 2:
+                count += 1
+    return count if holes_data else None
+
+
+def update_round_in_supabase(sb_id: str, fields: dict) -> None:
+    """Werkt een bestaande ronde in Supabase bij via PATCH op id."""
+    request_with_retry(
+        "PATCH",
+        f"{SUPABASE_URL}/rest/v1/rounds?id=eq.{sb_id}",
+        headers={**supabase_headers(), "Prefer": "return=minimal"},
+        data=json.dumps(fields),
+        timeout=30,
+    )
+
+
 def sync_one_user(username: str, password: str, user_id: str) -> int:
     """Synct één gebruiker. Geeft het aantal toegevoegde rondes terug."""
     global GOLFNL_USERNAME, GOLFNL_PASSWORD
@@ -341,25 +359,13 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
     golfnl_login(session)
 
     rounds = golfnl_fetch_scores(session)
-    log.info("%d score(s) opgehaald.", len(rounds))
+    log.info("%d score(s) opgehaald van GOLF.NL.", len(rounds))
 
-    db_rounds = existing_rounds(user_id)
-    have = {round_key(r) for r in db_rounds}
-    new_rounds = [r for r in rounds if r.get("date") and round_key(r) not in have]
-    log.info("%d nieuwe ronde(s) t.o.v. Supabase.", len(new_rounds))
-
-    # Bestaande rondes zonder per-hole data: ophalen en bijwerken (backfill).
-    # Bouw een map van round_key -> supabase-id voor rondes die al bestaan maar
-    # geen holes_data hebben.
-    needs_backfill = {
-        round_key(r): r["id"]
-        for r in db_rounds
-        if not r.get("holes_data")
-    }
-
-    failed = 0
+    # Haal scorekaart-details op voor ALLE rondes (nieuwe én bestaande).
+    # Zo hebben we altijd actuele per-hole data, ongeacht wat er al in Supabase staat.
+    failed_scorecards = 0
     if FETCH_DETAILS:
-        for rd in new_rounds:
+        for rd in rounds:
             if not rd.get("_scorecardid"):
                 continue
             try:
@@ -367,37 +373,55 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
                 if d["holes_data"]:
                     rd["holes"] = d["holes"]
                     rd["holes_data"] = d["holes_data"]
+                    rd["double_bogeys"] = derive_double_bogeys(d["holes_data"])
+                    log.debug("Scorekaart opgehaald: %s (%d holes).", rd.get("date"), rd["holes"])
             except Exception as e:  # noqa: BLE001
-                failed += 1
+                failed_scorecards += 1
                 log.warning("Scorekaart %s overgeslagen: %s", rd.get("_scorecardid"), e)
+        if failed_scorecards:
+            log.warning("%d scorekaart(en) konden niet worden opgehaald.", failed_scorecards)
 
-        # Backfill: update bestaande rondes die nog geen holes_data hebben.
-        backfilled = 0
-        for golfnl_rd in rounds:
-            sb_id = needs_backfill.get(round_key(golfnl_rd))
-            if not sb_id or not golfnl_rd.get("_scorecardid"):
-                continue
-            try:
-                d = golfnl_fetch_scorecard(session, golfnl_rd["_scorecardid"])
-                if not d["holes_data"]:
-                    continue
-                request_with_retry(
-                    "PATCH",
-                    f"{SUPABASE_URL}/rest/v1/rounds?id=eq.{sb_id}",
-                    headers={**supabase_headers(), "Prefer": "return=minimal"},
-                    data=json.dumps({"holes": d["holes"], "holes_data": d["holes_data"]}),
-                    timeout=30,
-                )
-                backfilled += 1
-                log.debug("Holes-data bijgewerkt voor ronde %s (id=%s).", golfnl_rd.get("date"), sb_id)
-            except Exception as e:  # noqa: BLE001
-                failed += 1
-                log.warning("Backfill mislukt voor ronde %s: %s", golfnl_rd.get("date"), e)
-        if backfilled:
-            log.info("%d bestaande ronde(s) bijgewerkt met per-hole data.", backfilled)
+    # Vergelijk met Supabase: nieuw vs. bestaand.
+    # have: round_key -> supabase-id (voor update bestaande rondes).
+    db_rounds = existing_rounds(user_id)
+    have = {round_key(r): r["id"] for r in db_rounds}
+    log.debug("Supabase heeft %d ronde(s) voor deze gebruiker.", len(db_rounds))
 
-    if failed:
-        log.warning("%d scorekaart(en) konden niet worden opgehaald.", failed)
+    new_rounds = [r for r in rounds if r.get("date") and round_key(r) not in have]
+    existing_golfnl = [r for r in rounds if r.get("date") and round_key(r) in have]
+    log.info("%d nieuwe ronde(s), %d bestaande ronde(s) te updaten.", len(new_rounds), len(existing_golfnl))
+
+    # Update bestaande rondes met alle beschikbare GOLF.NL-data.
+    # Overschrijft score/course_handicap/holes_data/double_bogeys — raakt Garmin-velden niet aan.
+    updated = 0
+    update_failed = 0
+    for rd in existing_golfnl:
+        sb_id = have[round_key(rd)]
+        fields: dict = {}
+        # Basisvelden uit de scorelijst
+        for f in ("score", "course_handicap", "notes"):
+            if rd.get(f) is not None:
+                fields[f] = rd[f]
+        # Per-hole data (alleen als gevuld)
+        if rd.get("holes_data"):
+            fields["holes"] = rd["holes"]
+            fields["holes_data"] = rd["holes_data"]
+        if rd.get("double_bogeys") is not None:
+            fields["double_bogeys"] = rd["double_bogeys"]
+        if not fields:
+            continue
+        try:
+            update_round_in_supabase(sb_id, fields)
+            updated += 1
+            log.debug("Ronde %s bijgewerkt (id=%s, velden=%s).", rd.get("date"), sb_id, list(fields))
+        except Exception as e:  # noqa: BLE001
+            update_failed += 1
+            log.warning("Update mislukt voor ronde %s: %s", rd.get("date"), e)
+
+    if updated:
+        log.info("%d bestaande ronde(s) bijgewerkt met GOLF.NL-data.", updated)
+    if update_failed:
+        log.warning("%d ronde-update(s) mislukt.", update_failed)
 
     return push_to_supabase(new_rounds, user_id)
 
