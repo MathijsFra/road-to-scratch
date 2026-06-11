@@ -78,7 +78,10 @@ export async function getUser() {
 
 export async function signIn(email, password) {
   const { error } = await client.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+  if (error) {
+    if (error.message.includes("Invalid login")) throw new Error("E-mail of wachtwoord incorrect.");
+    throw error;
+  }
 }
 
 export async function signOut() {
