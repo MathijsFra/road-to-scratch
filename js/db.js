@@ -52,21 +52,15 @@ function writeLocal(rows) {
 }
 
 export async function initDb() {
-  console.log("[initDb] Starting with URL:", SUPABASE_URL?.slice(0, 20) + "...");
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-      console.log("[initDb] Importing @supabase/supabase-js from esm.sh...");
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      console.log("[initDb] Creating Supabase client...");
       client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       mode = "supabase";
-      console.log("[initDb] Supabase mode activated");
     } catch (e) {
-      console.error("[initDb] Supabase import/init failed:", e.message, e);
+      console.warn("Supabase niet beschikbaar, val terug op lokale opslag.", e);
       mode = "local";
     }
-  } else {
-    console.log("[initDb] No Supabase credentials, using local mode");
   }
 
   if (mode === "local" && localStorage.getItem(LS_KEY) === null) {
@@ -83,19 +77,10 @@ export async function getUser() {
 }
 
 export async function signIn(email, password) {
-  console.log("[signIn] Starting sign-in for:", email);
-  try {
-    console.log("[signIn] Calling client.auth.signInWithPassword...");
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    console.log("[signIn] Response received. Error:", error, "Data:", data);
-    if (error) {
-      const msg = error.message.includes("Invalid") ? "E-mail of wachtwoord incorrect." : error.message;
-      throw new Error(msg);
-    }
-    console.log("[signIn] Sign-in successful");
-  } catch (e) {
-    console.error("[signIn] Exception:", e.message);
-    throw e;
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (error.message.includes("Invalid login")) throw new Error("E-mail of wachtwoord incorrect.");
+    throw error;
   }
 }
 
@@ -106,10 +91,7 @@ export async function signOut() {
 // Roept cb(user|null) aan bij elke login/logout/sessie-wijziging.
 export function onAuthChange(cb) {
   if (mode !== "supabase") return;
-  client.auth.onAuthStateChange((_event, session) => {
-    console.log("[onAuthChange] Event:", _event, "Session:", session?.user?.email || "null");
-    cb(session?.user || null);
-  });
+  client.auth.onAuthStateChange((_event, session) => cb(session?.user || null));
 }
 
 async function accessToken() {

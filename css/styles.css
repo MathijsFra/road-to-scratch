@@ -72,6 +72,7 @@ html, body {
   padding: 24px;
   padding-top: calc(24px + var(--safe-top));
 }
+.login-screen[hidden] { display: none !important; }
 .login-card {
   background: var(--card);
   border-radius: var(--radius);

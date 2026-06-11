@@ -558,16 +558,13 @@ async function main() {
   // Cloud-modus: login vereist. Reageer op login/logout/sessieherstel.
   let loaded = false;
   onAuthChange(async (user) => {
-    console.log("[app.js onAuthChange callback] user:", user?.email, "loaded:", loaded);
     $("#logoutBtn").hidden = !user;
     if (user && !loaded) {
-      console.log("[app.js] Calling showApp(true) and refresh()");
       loaded = true;
       showApp(true);
       $("#loginMsg").textContent = "";
       await refresh();
     } else if (!user) {
-      console.log("[app.js] Calling showApp(false)");
       loaded = false;
       showApp(false);
     }
