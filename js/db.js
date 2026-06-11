@@ -103,7 +103,11 @@ export async function getRounds() {
   if (mode === "supabase") {
     const { data, error } = await client
       .from(TABLE).select("*").order("date", { ascending: true });
-    if (error) throw error;
+    if (error) {
+      console.error("[getRounds] Query error:", error);
+      throw error;
+    }
+    console.log("[getRounds] Got", data?.length, "rows");
     return data;
   }
   return readLocal().slice().sort((a, b) => a.date.localeCompare(b.date));
