@@ -21,6 +21,7 @@ import re
 import json
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 from golfutil import setup_logging, require_env, request_with_retry, run_main
 
@@ -79,7 +80,9 @@ def golfnl_login(session: requests.Session) -> None:
     token = token_el["value"] if token_el and token_el.has_attr("value") else None
     if not token:
         log.warning("Geen anti-forgery token gevonden op de loginpagina "
-                    "(layout gewijzigd?); probeer toch in te loggen.")
+                    "(layout gewijzigd of Accept-header probleem?); probeer toch in te loggen.")
+    else:
+        log.debug("Anti-forgery token gevonden.")
 
     # 2. Formulier posten (urlencoded). Cookies gaan automatisch mee via session.
     data = {FIELD_USERNAME: GOLFNL_USERNAME, FIELD_PASSWORD: GOLFNL_PASSWORD, **EXTRA_FIELDS}
@@ -91,12 +94,14 @@ def golfnl_login(session: requests.Session) -> None:
     )
 
     # 3. Controle of we echt ingelogd zijn.
-    if r2.url.rstrip("/").endswith("/login"):
+    # Gebruik urlparse zodat query strings (?returnUrl=...) niet de check omzeilen.
+    final_path = urlparse(r2.url).path.rstrip("/")
+    if final_path == "/login" or final_path.endswith("/login"):
         raise RuntimeError(
             "Inloggen mislukt (teruggestuurd naar /login). "
             "Controleer GOLFNL_USERNAME/GOLFNL_PASSWORD (en of er geen 2FA aanstaat)."
         )
-    log.info("Ingelogd op GOLF.NL.")
+    log.info("Ingelogd op GOLF.NL (eindpagina: %s).", r2.url)
 
 
 # ============================================================
@@ -302,7 +307,7 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
     GOLFNL_PASSWORD = password
 
     session = requests.Session()
-    session.headers.update({"User-Agent": UA, "Accept": "application/json"})
+    session.headers.update({"User-Agent": UA})
 
     log.info("Inloggen op GOLF.NL voor gebruiker %s…", user_id)
     golfnl_login(session)
