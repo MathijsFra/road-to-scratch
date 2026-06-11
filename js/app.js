@@ -3,9 +3,9 @@ import {
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
   getUser, signIn, signOut, onAuthChange, triggerWorkflow,
   getGithubToken, saveGithubToken, loadUserSettings, saveUserSettings,
-} from "./db.js?v=7";
-import { computeStats } from "./stats.js?v=7";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=7";
+} from "./db.js?v=8";
+import { computeStats } from "./stats.js?v=8";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=8";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
