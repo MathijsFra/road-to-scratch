@@ -3,9 +3,9 @@ import {
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
   getUser, signIn, signOut, onAuthChange, triggerWorkflow,
   loadUserSettings, saveGolfnlCredentials,
-} from "./db.js?v=9";
-import { computeStats } from "./stats.js?v=9";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=9";
+} from "./db.js?v=10";
+import { computeStats } from "./stats.js?v=10";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=10";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -516,7 +516,6 @@ function showApp(show) {
   const syncSection = $("#syncSection");
   if (syncSection) {
     syncSection.hidden = !(show && getMode() === "supabase");
-    if (show) refreshSyncTokenUI();
   }
 }
 
