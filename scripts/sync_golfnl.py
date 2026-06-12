@@ -302,17 +302,27 @@ def push_to_supabase(new_rounds: list[dict], user_id: str) -> int:
         log.info("Niets nieuws om toe te voegen.")
         return 0
 
-    # Interne velden (beginnend met "_") niet meesturen; koppel aan het account.
-    clean = [{**{k: v for k, v in r.items() if not k.startswith("_")}, "user_id": user_id}
-             for r in new_rounds]
+    added, failed = 0, 0
+    for rd in new_rounds:
+        row = {**{k: v for k, v in rd.items() if not k.startswith("_")}, "user_id": user_id}
+        try:
+            request_with_retry(
+                "POST", f"{SUPABASE_URL}/rest/v1/rounds",
+                headers={**supabase_headers(), "Prefer": "return=minimal"},
+                data=json.dumps(row), timeout=30,
+            )
+            added += 1
+            log.debug("Ronde %s (%s, %dh) toegevoegd.", rd.get("date"), rd.get("course"), rd.get("holes", 0))
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            body = getattr(getattr(e, "response", None), "text", "")
+            log.warning("Ronde %s (%s) niet toegevoegd: %s %s", rd.get("date"), rd.get("course"), e, body)
 
-    request_with_retry(
-        "POST", f"{SUPABASE_URL}/rest/v1/rounds",
-        headers={**supabase_headers(), "Prefer": "return=minimal"},
-        data=json.dumps(clean), timeout=60,
-    )
-    log.info("%d nieuwe ronde(s) toegevoegd.", len(new_rounds))
-    return len(new_rounds)
+    if added:
+        log.info("%d nieuwe ronde(s) toegevoegd.", added)
+    if failed:
+        log.warning("%d ronde(s) konden niet worden toegevoegd.", failed)
+    return added
 
 
 # ============================================================
