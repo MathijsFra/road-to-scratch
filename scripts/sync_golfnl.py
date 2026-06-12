@@ -280,15 +280,14 @@ def sb_get_user_settings() -> list[dict]:
 
 
 def existing_rounds(user_id: str) -> list[dict]:
-    """Haalt bestaande rondes van dit account op (datum, holes, sd, holes_data)."""
+    """Haalt bestaande rondes van dit account op."""
     resp = request_with_retry(
         "GET",
         f"{SUPABASE_URL}/rest/v1/rounds"
-        f"?select=id,date,holes,sd,holes_data&user_id=eq.{user_id}",
+        f"?select=id,date,holes,sd,holes_data,golfnl_scorecard_id&user_id=eq.{user_id}",
         headers=supabase_headers(),
     )
     return resp.json()
-
 
 
 def round_key(r: dict):
@@ -305,6 +304,8 @@ def push_to_supabase(new_rounds: list[dict], user_id: str) -> int:
     added, failed = 0, 0
     for rd in new_rounds:
         row = {**{k: v for k, v in rd.items() if not k.startswith("_")}, "user_id": user_id}
+        if rd.get("_scorecardid"):
+            row["golfnl_scorecard_id"] = rd["_scorecardid"]
         try:
             request_with_retry(
                 "POST", f"{SUPABASE_URL}/rest/v1/rounds",
@@ -415,13 +416,23 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
             log.warning("%d scorekaart(en) konden niet worden opgehaald.", failed_scorecards)
 
     # Vergelijk met Supabase: nieuw vs. bestaand.
-    # have: round_key -> supabase-id (voor update bestaande rondes).
+    # Primaire match: golfnl_scorecard_id. Fallback: (date, holes, sd) voor bestaande rondes.
     db_rounds = existing_rounds(user_id)
-    have = {round_key(r): r["id"] for r in db_rounds}
+    have_by_scorecard = {r["golfnl_scorecard_id"]: r["id"]
+                         for r in db_rounds if r.get("golfnl_scorecard_id")}
+    have_by_key = {round_key(r): r["id"] for r in db_rounds}
+    by_id = {r["id"]: r for r in db_rounds}
     log.debug("Supabase heeft %d ronde(s) voor deze gebruiker.", len(db_rounds))
 
-    new_rounds = [r for r in rounds if r.get("date") and round_key(r) not in have]
-    existing_golfnl = [r for r in rounds if r.get("date") and round_key(r) in have]
+    def find_sb_id(rd: dict) -> str | None:
+        """Geeft het Supabase-ID van een GOLF.NL-ronde, of None als hij nieuw is."""
+        sid = rd.get("_scorecardid")
+        if sid and sid in have_by_scorecard:
+            return have_by_scorecard[sid]
+        return have_by_key.get(round_key(rd))
+
+    new_rounds = [r for r in rounds if r.get("date") and find_sb_id(r) is None]
+    existing_golfnl = [r for r in rounds if r.get("date") and find_sb_id(r) is not None]
     log.info("%d nieuwe ronde(s), %d bestaande ronde(s) te updaten.", len(new_rounds), len(existing_golfnl))
 
     # Update bestaande rondes met alle beschikbare GOLF.NL-data.
@@ -429,7 +440,8 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
     updated = 0
     update_failed = 0
     for rd in existing_golfnl:
-        sb_id = have[round_key(rd)]
+        sb_id = find_sb_id(rd)
+        sb_round = by_id.get(sb_id, {})
         fields: dict = {}
         # Basisvelden uit de scorelijst
         for f in ("score", "course_handicap", "notes"):
@@ -441,6 +453,9 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
             fields["holes_data"] = rd["holes_data"]
         if rd.get("double_bogeys") is not None:
             fields["double_bogeys"] = rd["double_bogeys"]
+        # Sla scorecard-ID op als die er nog niet was (migratie van bestaande rondes)
+        if rd.get("_scorecardid") and not sb_round.get("golfnl_scorecard_id"):
+            fields["golfnl_scorecard_id"] = rd["_scorecardid"]
         if not fields:
             continue
         try:
