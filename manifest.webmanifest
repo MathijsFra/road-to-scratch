@@ -1,7 +1,7 @@
 {
-  "name": "Golf Progressie Tracker",
-  "short_name": "Golf Tracker",
-  "description": "Houd je golfrondes, handicap-progressie en Garmin-stats bij.",
+  "name": "Road to Scratch",
+  "short_name": "Road to Scratch",
+  "description": "Jouw pad naar een lager handicap — rondes, stats en club bag op één plek.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",

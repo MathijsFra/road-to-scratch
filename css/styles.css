@@ -47,7 +47,8 @@ html, body {
   justify-content: space-between;
   padding: 12px 16px;
 }
-.app-header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+.app-title { font-size: 1.1rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+.app-title em { font-style: italic; font-weight: 800; opacity: 0.9; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .logout-btn {
   font-size: 0.72rem;
@@ -85,7 +86,8 @@ html, body {
   gap: 4px;
 }
 .login-logo { font-size: 2.6rem; text-align: center; }
-.login-card h2 { margin: 2px 0 0; text-align: center; color: var(--green-800); }
+.login-card h2 { margin: 2px 0 0; text-align: center; color: var(--green-800); font-size: 1.4rem; }
+.login-card h2 em { font-style: italic; font-weight: 800; color: var(--green-600); }
 .login-sub { margin: 0 0 12px; text-align: center; color: var(--muted); font-size: 0.88rem; }
 .login-card label { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 10px; }
 .login-card .btn-primary { margin-top: 16px; }
@@ -148,7 +150,7 @@ html, body {
 .hero-sub .up { color: #bbf7d0; font-weight: 700; }
 
 /* ---------- Stat grid ---------- */
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -264,10 +266,10 @@ html, body {
 .cr-label { font-size: 0.68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 1px; }
 
 /* ---------- Bag view ---------- */
-.bag-header { padding: 0 16px 4px; }
+.bag-header { padding: 0; }
 .bag-sub { font-size: 0.82rem; color: var(--muted); margin: 0 0 8px; }
-.bag-loading { color: var(--muted); font-size: 0.9rem; padding: 24px 16px; text-align: center; }
-.bag-controls { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 4px; }
+.bag-loading { color: var(--muted); font-size: 0.9rem; padding: 24px 0; text-align: center; }
+.bag-controls { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 8px; }
 .bag-toggle { display: flex; background: var(--card); border-radius: 20px; padding: 2px; }
 .toggle-btn {
   background: none; border: none; border-radius: 18px;
@@ -282,7 +284,7 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--muted);
-  padding: 16px 16px 4px;
+  padding: 16px 0 4px;
 }
 .bag-group-grid { margin-bottom: 4px; }
 
