@@ -240,6 +240,23 @@ html, body {
 .detail-actions { display: flex; gap: 8px; }
 .empty-garmin { font-size: 0.82rem; color: var(--muted); margin: 12px 0; font-style: italic; }
 
+/* ---------- Course Rating / Slope in round detail ---------- */
+.round-cr-row {
+  display: flex;
+  gap: 16px;
+  margin: 10px 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+.round-cr-item { font-size: 0.88rem; color: var(--ink); font-weight: 600; }
+.cr-label { font-size: 0.68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 1px; }
+
+/* ---------- Bag view ---------- */
+.bag-header { padding: 0 16px 4px; }
+.bag-sub { font-size: 0.82rem; color: var(--muted); margin: 0; }
+.bag-loading { color: var(--muted); font-size: 0.9rem; padding: 24px 16px; text-align: center; }
+
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }
 .exs-item {

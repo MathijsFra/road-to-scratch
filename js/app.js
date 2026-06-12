@@ -93,9 +93,6 @@ function renderDashboard() {
   $("#parGrid").innerHTML = ac.length ? ac.join("")
     : emptyNote("Par-scoring verschijnt zodra er per-hole data is (via een scorecard-screenshot).");
 
-  // Club Bag (Toptracer)
-  renderClubBag();
-
   // Garmin
   const g = stats.garmin;
   if (g.any) {
@@ -143,14 +140,24 @@ const CLUB_ORDER = [
   "lob_wedge","putter",
 ];
 
-async function renderClubBag() {
-  const title = $("#clubBagTitle");
-  const grid = $("#clubBagGrid");
-  if (!title || !grid) return;
+// ---------- bag view ----------
+async function renderBagView() {
+  const emptyEl = $("#bagEmpty");
+  const grid    = $("#bagClubGrid");
+  const sub     = $("#bagSub");
+  if (!grid) return;
+
+  grid.innerHTML = `<div class="bag-loading">Laden…</div>`;
   try {
     const clubs = await getClubBag();
-    if (!clubs.length) { title.hidden = true; grid.innerHTML = ""; return; }
-    title.hidden = false;
+    if (!clubs.length) {
+      grid.innerHTML = "";
+      if (emptyEl) emptyEl.hidden = false;
+      if (sub) sub.textContent = "";
+      return;
+    }
+    if (emptyEl) emptyEl.hidden = true;
+
     const sorted = clubs.slice().sort((a, b) => {
       const ai = CLUB_ORDER.indexOf(a.club_type);
       const bi = CLUB_ORDER.indexOf(b.club_type);
@@ -159,12 +166,17 @@ async function renderClubBag() {
       if (bi === -1) return -1;
       return ai - bi;
     });
+
+    if (sub) sub.textContent = `${sorted.length} clubs via Toptracer`;
     grid.innerHTML = sorted.map((c) => {
       const carry = c.avg_carry_m != null ? `${Math.round(c.avg_carry_m)} m` : "—";
       const total = c.avg_total_m != null ? ` (${Math.round(c.avg_total_m)} m)` : "";
       return card(esc(c.club_display_name || c.club_type), carry, `carry${total}`);
     }).join("");
-  } catch { title.hidden = true; }
+  } catch {
+    grid.innerHTML = "";
+    if (emptyEl) emptyEl.hidden = false;
+  }
 }
 
 // ---------- round list ----------
@@ -186,6 +198,8 @@ function roundCard(r, withActions) {
   const garmin = hasGarmin(r);
   const shots = Array.isArray(r.screenshots) ? r.screenshots : [];
   const hd = Array.isArray(r.holes_data) ? r.holes_data : [];
+  const ct = r.course_tees;
+  const hasCr = ct && (ct.course_rating != null || ct.slope_rating != null);
   return `
   <div class="round-card" data-id="${r.id}">
     <div class="round-head">
@@ -201,6 +215,11 @@ function roundCard(r, withActions) {
       <span class="chev">›</span>
     </div>
     <div class="round-detail">
+      ${hasCr ? `<div class="round-cr-row">
+        <span class="round-cr-item"><span class="cr-label">CR</span> ${ct.course_rating != null ? Number(ct.course_rating).toFixed(1) : "—"}</span>
+        <span class="round-cr-item"><span class="cr-label">Slope</span> ${ct.slope_rating ?? "—"}</span>
+        ${ct.par != null ? `<span class="round-cr-item"><span class="cr-label">Par</span> ${ct.par}</span>` : ""}
+      </div>` : ""}
       ${garmin ? `<div class="garmin-grid">
         ${gcell(r.putts, "Putts")}
         ${gcell(r.penalties, "Penalties")}
@@ -210,7 +229,7 @@ function roundCard(r, withActions) {
       ${hd.length ? holesTable(hd) : ""}
       ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a class="shot-link" data-shot="${esc(u)}" target="_blank" rel="noopener"><img alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
       ${r.notes ? `<div class="round-notes">${esc(r.notes)}</div>` : ""}
-      ${!garmin && !hd.length && !shots.length && !r.notes ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
+      ${!hasCr && !garmin && !hd.length && !shots.length && !r.notes ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
       ${withActions ? `<div class="detail-actions">
         ${(!r.non_qualifying && !r.golfnl_scorecard_id) ? `<button class="btn btn-ghost btn-sm" data-edit="${r.id}">Bewerken</button>` : ""}
         <button class="btn btn-danger btn-sm" data-del="${r.id}" ${r.non_qualifying ? 'data-nq="true"' : ""}>Verwijderen</button>
@@ -546,6 +565,7 @@ function switchView(view) {
   $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   window.scrollTo({ top: 0 });
   if (view === "chart" && !chartsBuilt) buildCharts();
+  if (view === "bag") renderBagView();
   if (view !== "add" && editingId) resetForm();
 }
 
@@ -727,6 +747,7 @@ async function main() {
   $("#roundForm").addEventListener("submit", onSubmit);
   $("#cancelBtn").addEventListener("click", () => { resetForm(); switchView("rounds"); });
   $("#filterHoles").addEventListener("change", renderRoundList);
+  $("#bagGoSettings")?.addEventListener("click", () => switchView("settings"));
   $("#f_shots").addEventListener("change", onShotsSelected);
   $("#parseBtn").addEventListener("click", onParse);
   $("#f_holes").addEventListener("change", () => buildHolesGrid(collectHolesGrid()));

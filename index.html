@@ -77,9 +77,6 @@
       <h2 class="section-title">Garmin gemiddelden</h2>
       <div class="stat-grid" id="garminGrid"></div>
 
-      <h2 class="section-title" id="clubBagTitle" hidden>Club Bag (Toptracer)</h2>
-      <div class="stat-grid" id="clubBagGrid"></div>
-
       <h2 class="section-title">Exceptionele scores (EXS)</h2>
       <div id="exsList" class="exs-list"></div>
 
@@ -358,6 +355,18 @@
         </div>
       </details>
     </section>
+
+    <!-- BAG -->
+    <section id="view-bag" class="view">
+      <div class="bag-header">
+        <h2 class="section-title">Club Bag</h2>
+        <p class="bag-sub" id="bagSub"></p>
+      </div>
+      <div id="bagEmpty" class="empty-note" hidden>
+        Koppel Toptracer in <button class="link-btn" id="bagGoSettings">Instellingen</button> om je club bag te zien.
+      </div>
+      <div class="stat-grid" id="bagClubGrid"></div>
+    </section>
   </main>
 
   <nav class="tabbar">
@@ -365,9 +374,10 @@
     <button class="tab" data-view="rounds"><span class="ico">📋</span>Rondes</button>
     <button class="tab tab-add" data-view="add"><span class="ico">＋</span>Toevoegen</button>
     <button class="tab" data-view="chart"><span class="ico">📈</span>Grafiek</button>
+    <button class="tab" data-view="bag"><span class="ico">🏌️</span>Bag</button>
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instellingen</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=21"></script>
+  <script type="module" src="js/app.js?v=22"></script>
 </body>
 </html>

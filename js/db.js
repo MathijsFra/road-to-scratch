@@ -128,7 +128,9 @@ async function accessToken() {
 
 export async function getRounds() {
   if (mode === "supabase") {
-    return await pgrest(`${TABLE}?select=*&deleted_at=is.null&order=date`);
+    return await pgrest(
+      `${TABLE}?select=*,course_tees(course_rating,slope_rating,par)&deleted_at=is.null&order=date`,
+    );
   }
   return readLocal().slice().sort((a, b) => a.date.localeCompare(b.date));
 }
