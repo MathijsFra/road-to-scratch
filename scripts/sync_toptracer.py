@@ -39,22 +39,21 @@ TOPTRACER_GRAPHQL_URL = "https://api.toptracer.com/api/appsbff/graphql"
 TOPTRACER_CLIENT_ID = "trca"
 TOPTRACER_REDIRECT_URI = "com.toptracer.community.dev:/callback"
 
-CLUBS_QUERY = """
-query GetUserClubs {
-  userClubs {
+# Toptracer vereist een gameMode-argument; we bevragen alle relevante modi tegelijk.
+# De resultaten worden samengevoegd; per clubType wint de modus met de meeste data.
+_CLUBS_FRAGMENT = """
     clubs {
-      id
-      clubType
-      clubTypeDisplayName
-      category
-      isHidden
-      averages {
-        carry
-        total
-      }
+      id clubType clubTypeDisplayName category isHidden
+      averages { carry total }
     }
-  }
-}
+"""
+
+CLUBS_QUERY = f"""
+query GetUserClubs {{
+  lm:   userClubs(gameMode: LaunchMonitor)  {{ {_CLUBS_FRAGMENT} }}
+  wimb: userClubs(gameMode: WhatsInMyBag)   {{ {_CLUBS_FRAGMENT} }}
+  dr:   userClubs(gameMode: DrivingChallenge) {{ {_CLUBS_FRAGMENT} }}
+}}
 """
 
 
@@ -333,7 +332,18 @@ def sync_one_user(user: dict) -> int:
     if "errors" in result:
         raise RuntimeError(f"GraphQL-fout: {result['errors']}")
 
-    clubs = (result.get("data") or {}).get("userClubs", {}).get("clubs") or []
+    data = result.get("data") or {}
+    merged: dict[str, dict] = {}
+    for alias in ("lm", "wimb", "dr"):
+        for club in (data.get(alias) or {}).get("clubs") or []:
+            ct = club.get("clubType")
+            if not ct:
+                continue
+            avg_new = (club.get("averages") or {}).get("carry")
+            avg_old = (merged.get(ct, {}).get("averages") or {}).get("carry")
+            if ct not in merged or (avg_new and not avg_old):
+                merged[ct] = club
+    clubs = list(merged.values())
     log.info("  %d club(s) ontvangen van Toptracer.", len(clubs))
 
     saved = sb_upsert_clubs(user_id, clubs)
