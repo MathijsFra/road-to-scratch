@@ -4,8 +4,8 @@ import {
   getUser, signIn, signUp, signOut, onAuthChange, triggerWorkflow,
   loadUserSettings, saveGolfnlCredentials, saveGarminCredentials,
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
-  resetGarminAuthStatus,
-} from "./db.js?v=14";
+  resetGarminAuthStatus, clearGarminCredentials,
+} from "./db.js?v=15";
 import { computeStats } from "./stats.js?v=11";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -589,6 +589,18 @@ async function onSync(workflowFile, btn, statusEl) {
 }
 
 // ---------- garmin koppelen ----------
+function showGarminLinked(username) {
+  const linked = !!username;
+  const linkedState = $("#garminLinkedState");
+  const unlinkedState = $("#garminUnlinkedState");
+  if (!linkedState || !unlinkedState) return;
+  linkedState.hidden = !linked;
+  unlinkedState.hidden = linked;
+  if (username) $("#garminLinkedUser").textContent = username;
+  const summary = document.querySelector("#garminDetails summary");
+  if (summary) summary.textContent = linked ? "Garmin Connect ✓ gekoppeld" : "Garmin Connect koppelen";
+}
+
 let garminPollTimer = null;
 
 function stopGarminPoll() {
@@ -607,10 +619,12 @@ function updateGarminUI(status, error) {
     msg.className = "sync-status";
   } else if (status === "completed") {
     stopGarminPoll();
-    step1.hidden = false;
-    step2.hidden = true;
     msg.textContent = "✓ Garmin gekoppeld!";
     msg.className = "sync-status ok";
+    loadUserSettings().then((s) => {
+      showGarminLinked(s.garmin_username || "–");
+      if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
+    }).catch(() => showGarminLinked("–"));
     setTimeout(() => { msg.textContent = ""; }, 5000);
   } else if (status === "failed") {
     stopGarminPoll();
@@ -738,6 +752,21 @@ async function main() {
     }
   });
 
+  $("#garminUnlinkBtn")?.addEventListener("click", async () => {
+    if (!confirm("Garmin Connect ontkoppelen? De gekoppelde gegevens worden gewist.")) return;
+    const msg = $("#garminMsg");
+    try {
+      await clearGarminCredentials();
+      showGarminLinked(null);
+      stopGarminPoll();
+      msg.textContent = "";
+      $("#garminDetails").open = false;
+    } catch (err) {
+      msg.textContent = "Ontkoppelen mislukt: " + (err.message || err);
+      msg.className = "sync-status err";
+    }
+  });
+
   $("#darkModeToggle")?.addEventListener("change", (e) => {
     applyTheme(e.target.checked);
     localStorage.setItem(THEME_KEY, e.target.checked ? "dark" : "light");
@@ -771,7 +800,12 @@ async function main() {
       await refresh();
       loadUserSettings().then((s) => {
         if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
-        if (s.garmin_username) $("#garminUsername").value = s.garmin_username;
+        if (s.garmin_auth_status === "completed" && s.garmin_username) {
+          showGarminLinked(s.garmin_username);
+        } else {
+          if (s.garmin_username) $("#garminUsername").value = s.garmin_username;
+          showGarminLinked(null);
+        }
       });
       // Herstel lopende Garmin-koppeling na pagina-refresh.
       getGarminAuthStatus().then(({ status, error }) => {

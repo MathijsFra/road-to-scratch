@@ -91,6 +91,7 @@ html, body {
 .login-card .btn-primary { margin-top: 16px; }
 .login-toggle { margin: 10px 0 0; text-align: center; font-size: 0.84rem; color: var(--muted); }
 .link-btn { background: none; border: none; color: var(--green-600); cursor: pointer; text-decoration: underline; padding: 0; font-size: inherit; font-family: inherit; }
+.garmin-linked-name { color: var(--green-600); font-weight: 600; }
 .db-badge {
   font-size: 0.7rem;
   font-weight: 600;
