@@ -35,7 +35,14 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABAS
 def garmin_login_token(token_str: str) -> Garmin:
     """Inloggen met een opgeslagen sessie-token (geen OTP nodig)."""
     g = Garmin()
-    g.login(tokenstore=token_str)
+    try:
+        # garth-gebaseerd API (>=0.2.x): laad token via garth.loads()
+        g.garth.loads(token_str)
+        g.display_name = g.garth.profile.get("displayName")
+        g.full_name = g.garth.profile.get("fullName")
+    except AttributeError:
+        # Oudere versie: tokenstore= parameter
+        g.login(tokenstore=token_str)
     return g
 
 
@@ -336,7 +343,10 @@ def main() -> None:
 
         # Vernieuw het token na een succesvolle sync.
         try:
-            new_token = g.client.dumps()
+            try:
+                new_token = g.garth.dumps()
+            except AttributeError:
+                new_token = g.client.dumps()
             sb_save_garmin_token(user_id, new_token)
             log.debug("  Token vernieuwd in Supabase.")
         except Exception as e:  # noqa: BLE001

@@ -63,7 +63,10 @@ def garmin_login(email: str, password: str):
     """Logt in op Garmin Connect. Vraagt interactief om OTP als dat vereist is."""
     from garminconnect import Garmin  # importeer laat zodat foutmeldingen duidelijker zijn
     g = Garmin(email=email, password=password)
-    g.login()
+    try:
+        g.login(prompt_mfa=input)  # garth-gebaseerd API (>=0.2.x)
+    except TypeError:
+        g.login()  # oudere versie: vraagt OTP via builtins.input
     return g
 
 
@@ -108,7 +111,10 @@ def main() -> None:
 
     # Stap 3: token opslaan
     print("Sessietoken opslaan in Supabase…")
-    token_str = g.client.dumps()
+    try:
+        token_str = g.garth.dumps()
+    except AttributeError:
+        token_str = g.client.dumps()
     save_token(jwt, token_str, GARMIN_EMAIL)
 
     print("\n✓ Klaar! Garmin is gekoppeld aan je account.")

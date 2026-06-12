@@ -118,28 +118,30 @@ def main() -> None:
         set_status("failed", error=msg)
         sys.exit(1)
 
-    # Monkey-patch input() zodat garminconnect de OTP via Supabase ontvangt.
-    original_input = builtins.input
-
-    def otp_via_supabase(prompt=""):
-        print(f"Garmin vraagt om verificatiecode (prompt: {prompt!r})", flush=True)
+    # MFA-callback voor garth-gebaseerde garminconnect (>=0.2.x).
+    # Patch builtins.input als extra fallback voor oudere versies.
+    def prompt_mfa() -> str:
+        print("Garmin vraagt om verificatiecode (MFA).", flush=True)
         set_status("otp_needed")
         try:
             otp = poll_for_otp()
-            # OTP verwijderen na ontvangst, status terug naar pending
             set_status("pending", clear_otp=True)
             return otp
         except TimeoutError as exc:
             set_status("failed", error="Timeout: geen verificatiecode ingevoerd binnen 5 minuten.")
             raise SystemExit(1) from exc
 
-    builtins.input = otp_via_supabase
+    original_input = builtins.input
+    builtins.input = prompt_mfa  # fallback voor oudere garminconnect
 
     try:
-        from garminconnect import Garmin  # laat importeren voor duidelijke foutmeldingen
+        from garminconnect import Garmin
         print(f"Inloggen op Garmin Connect als {username}…", flush=True)
         g = Garmin(email=username, password=password)
-        g.login()
+        try:
+            g.login(prompt_mfa=prompt_mfa)  # nieuw garth-gebaseerd API
+        except TypeError:
+            g.login()  # oudere versie: gebruikt builtins.input-patch
     except SystemExit:
         raise
     except Exception as e:
@@ -150,7 +152,11 @@ def main() -> None:
         builtins.input = original_input
 
     try:
-        token_str = g.client.dumps()
+        # garth-gebaseerd (>=0.2.x): g.garth.dumps(); oudere versie: g.client.dumps()
+        try:
+            token_str = g.garth.dumps()
+        except AttributeError:
+            token_str = g.client.dumps()
         save_token(token_str)
         set_status("completed")
         print("✓ Garmin-token opgeslagen. Koppeling geslaagd.", flush=True)
