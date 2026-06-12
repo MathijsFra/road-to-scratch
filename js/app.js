@@ -134,11 +134,16 @@ function card(label, value, meta) {
 function emptyNote(t) { return `<p class="empty-note">${esc(t)}</p>`; }
 
 // ---------- club bag ----------
-const CLUB_ORDER = [
-  "driver","3_wood","5_wood","7_wood","hybrid","2_iron","3_iron","4_iron","5_iron",
-  "6_iron","7_iron","8_iron","9_iron","pitching_wedge","gap_wedge","sand_wedge",
-  "lob_wedge","putter",
+// Groepen bepalen volgorde en sectiekoppen in de Bag-weergave
+const CLUB_GROUPS = [
+  { label: "Woods",   types: ["driver","3_wood","5_wood","7_wood","9_wood"] },
+  { label: "Hybrids", types: ["1_hybrid","2_hybrid","3_hybrid","4_hybrid","5_hybrid","hybrid"] },
+  { label: "Irons",   types: ["1_iron","2_iron","3_iron","4_iron","5_iron","6_iron","7_iron","8_iron","9_iron"] },
+  { label: "Wedges",  types: ["pitching_wedge","gap_wedge","sand_wedge","lob_wedge"] },
+  { label: "Putter",  types: ["putter"] },
 ];
+// Flat volgorde voor backwards-compat
+const CLUB_ORDER = CLUB_GROUPS.flatMap((g) => g.types);
 
 // ---------- bag view ----------
 async function renderBagView() {
@@ -168,11 +173,22 @@ async function renderBagView() {
     });
 
     if (sub) sub.textContent = `${sorted.length} clubs via Toptracer`;
-    grid.innerHTML = sorted.map((c) => {
-      const carry = c.avg_carry_m != null ? `${Math.round(c.avg_carry_m)} m` : "—";
-      const total = c.avg_total_m != null ? ` (${Math.round(c.avg_total_m)} m)` : "";
-      return card(esc(c.club_display_name || c.club_type), carry, `carry${total}`);
-    }).join("");
+
+    // Render per groep met sectiekop
+    const byType = Object.fromEntries(sorted.map((c) => [c.club_type, c]));
+    let html = "";
+    for (const group of CLUB_GROUPS) {
+      const inGroup = group.types.map((t) => byType[t]).filter(Boolean);
+      if (!inGroup.length) continue;
+      html += `<div class="bag-group-label">${group.label}</div>`;
+      html += `<div class="stat-grid bag-group-grid">`;
+      html += inGroup.map((c) => {
+        const carry = c.avg_carry_m != null ? `${Math.round(c.avg_carry_m)} m` : "—";
+        return card(esc(c.club_display_name || c.club_type), carry, "carry");
+      }).join("");
+      html += `</div>`;
+    }
+    grid.innerHTML = html;
   } catch {
     grid.innerHTML = "";
     if (emptyEl) emptyEl.hidden = false;

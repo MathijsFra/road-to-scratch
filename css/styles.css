@@ -256,6 +256,15 @@ html, body {
 .bag-header { padding: 0 16px 4px; }
 .bag-sub { font-size: 0.82rem; color: var(--muted); margin: 0; }
 .bag-loading { color: var(--muted); font-size: 0.9rem; padding: 24px 16px; text-align: center; }
+.bag-group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  padding: 16px 16px 4px;
+}
+.bag-group-grid { margin-bottom: 4px; }
 
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }
