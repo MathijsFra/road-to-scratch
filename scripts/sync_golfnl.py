@@ -401,7 +401,7 @@ def upsert_course_tee(
 
         resp3 = request_with_retry(
             "POST",
-            f"{SUPABASE_URL}/rest/v1/course_tees",
+            f"{SUPABASE_URL}/rest/v1/course_tees?on_conflict=course_id,tee_name,tee_gender,holes",
             headers={**supabase_headers(),
                      "Prefer": "resolution=merge-duplicates,return=representation"},
             data=json.dumps(tee_row),
