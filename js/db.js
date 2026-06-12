@@ -253,9 +253,24 @@ export async function signUp(email, password) {
 export async function loadUserSettings() {
   if (mode !== "supabase") return {};
   try {
-    const rows = await pgrest("user_settings?select=golfnl_username,garmin_username,garmin_auth_status&limit=1");
+    const rows = await pgrest("user_settings?select=golfnl_username,golfnl_sync_status,garmin_username,garmin_auth_status&limit=1");
     return Array.isArray(rows) && rows.length ? rows[0] : {};
   } catch { return {}; }
+}
+
+export async function clearGolfnlCredentials() {
+  if (mode !== "supabase") return;
+  const user = await getUser();
+  if (!user) return;
+  await pgrest(`user_settings?user_id=eq.${user.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      golfnl_username: null,
+      golfnl_password: null,
+      golfnl_sync_status: null,
+    }),
+    headers: { "Prefer": "return=minimal" },
+  });
 }
 
 export async function clearGarminCredentials() {

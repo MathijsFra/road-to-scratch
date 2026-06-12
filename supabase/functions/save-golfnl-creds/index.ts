@@ -77,6 +77,7 @@ async function upsertSettings(userId: string, username: string, encryptedPasswor
       user_id: userId,
       golfnl_username: username,
       golfnl_password: encryptedPassword,
+      golfnl_sync_status: null,
       updated_at: new Date().toISOString(),
     }),
   });

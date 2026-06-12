@@ -344,6 +344,20 @@ def derive_double_bogeys(holes_data: list[dict]) -> int | None:
     return count if holes_data else None
 
 
+def sb_set_golfnl_status(user_id: str, status: str) -> None:
+    """Zet golfnl_sync_status voor een gebruiker (bijv. 'completed')."""
+    try:
+        request_with_retry(
+            "PATCH",
+            f"{SUPABASE_URL}/rest/v1/user_settings?user_id=eq.{user_id}",
+            headers={**supabase_headers(), "Prefer": "return=minimal"},
+            data=json.dumps({"golfnl_sync_status": status}),
+            timeout=15,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("golfnl_sync_status bijwerken mislukt (niet kritiek): %s", e)
+
+
 def update_round_in_supabase(sb_id: str, fields: dict) -> None:
     """Werkt een bestaande ronde in Supabase bij via PATCH op id."""
     request_with_retry(
@@ -466,13 +480,15 @@ def main() -> None:
     log.info("%d gebruiker(s) te synchroniseren.", len(users))
     total_added, failed_users = 0, 0
     for u in users:
+        user_id = u["user_id"]
         try:
             total_added += sync_one_user(
-                u["golfnl_username"], u["golfnl_password"], u["user_id"],
+                u["golfnl_username"], u["golfnl_password"], user_id,
             )
+            sb_set_golfnl_status(user_id, "completed")
         except Exception as e:  # noqa: BLE001
             failed_users += 1
-            log.error("Sync mislukt voor gebruiker %s: %s", u.get("user_id"), e)
+            log.error("Sync mislukt voor gebruiker %s: %s", user_id, e)
 
     log.info("Klaar. %d ronde(s) toegevoegd, %d gebruiker(s) mislukt.", total_added, failed_users)
     if failed_users and total_added == 0:

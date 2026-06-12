@@ -4,8 +4,8 @@ import {
   getUser, signIn, signUp, signOut, onAuthChange, triggerWorkflow,
   loadUserSettings, saveGolfnlCredentials, saveGarminCredentials,
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
-  resetGarminAuthStatus, clearGarminCredentials,
-} from "./db.js?v=15";
+  resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
+} from "./db.js?v=16";
 import { computeStats } from "./stats.js?v=11";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -588,6 +588,19 @@ async function onSync(workflowFile, btn, statusEl) {
   }
 }
 
+// ---------- golf.nl koppeling ----------
+function showGolfnlLinked(username) {
+  const linked = !!username;
+  const linkedState = $("#golfnlLinkedState");
+  const unlinkedState = $("#golfnlUnlinkedState");
+  if (!linkedState || !unlinkedState) return;
+  linkedState.hidden = !linked;
+  unlinkedState.hidden = linked;
+  if (username) $("#golfnlLinkedUser").textContent = username;
+  const summary = document.querySelector("#golfnlDetails summary");
+  if (summary) summary.textContent = linked ? "GOLF.NL ✓ gekoppeld" : "GOLF.NL inloggegevens";
+}
+
 // ---------- garmin koppelen ----------
 function showGarminLinked(username) {
   const linked = !!username;
@@ -708,6 +721,22 @@ async function main() {
     setTimeout(() => { msg.textContent = ""; }, 4000);
   });
 
+  $("#golfnlUnlinkBtn")?.addEventListener("click", async () => {
+    if (!confirm("GOLF.NL ontkoppelen? De opgeslagen inloggegevens worden gewist.")) return;
+    const msg = $("#golfnlMsg");
+    try {
+      await clearGolfnlCredentials();
+      showGolfnlLinked(null);
+      $("#golfnlUsername").value = "";
+      $("#golfnlPassword").value = "";
+      msg.textContent = "";
+      $("#golfnlDetails").open = false;
+    } catch (err) {
+      msg.textContent = "Ontkoppelen mislukt: " + (err.message || err);
+      msg.className = "sync-status err";
+    }
+  });
+
   $("#garminConnectBtn")?.addEventListener("click", async () => {
     const username = $("#garminUsername").value.trim();
     const password = $("#garminPassword").value;
@@ -799,7 +828,12 @@ async function main() {
       onUserLoggedIn(user);
       await refresh();
       loadUserSettings().then((s) => {
-        if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
+        if (s.golfnl_sync_status === "completed" && s.golfnl_username) {
+          showGolfnlLinked(s.golfnl_username);
+        } else {
+          if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
+          showGolfnlLinked(null);
+        }
         if (s.garmin_auth_status === "completed" && s.garmin_username) {
           showGarminLinked(s.garmin_username);
         } else {
