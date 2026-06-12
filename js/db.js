@@ -265,9 +265,61 @@ export async function signUp(email, password) {
 export async function loadUserSettings() {
   if (mode !== "supabase") return {};
   try {
-    const rows = await pgrest("user_settings?select=golfnl_username,golfnl_sync_status,garmin_username,garmin_auth_status&limit=1");
+    const rows = await pgrest(
+      "user_settings?select=golfnl_username,golfnl_sync_status,garmin_username,garmin_auth_status,toptracer_username,toptracer_auth_status&limit=1",
+    );
     return Array.isArray(rows) && rows.length ? rows[0] : {};
   } catch { return {}; }
+}
+
+export async function getClubBag() {
+  if (mode !== "supabase") return [];
+  try {
+    return await pgrest("toptracer_clubs?select=*&order=avg_carry_m.desc.nullslast");
+  } catch { return []; }
+}
+
+export async function getToptracerStatus() {
+  if (mode !== "supabase") return { status: null, error: null, username: null };
+  const token = await accessToken();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/toptracer-auth`, {
+    headers: { "Authorization": `Bearer ${token}`, "apikey": SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+export async function exchangeToptracerCode(code, codeVerifier) {
+  if (mode !== "supabase") return;
+  const token = await accessToken();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/toptracer-auth`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "apikey": SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code, code_verifier: codeVerifier }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export async function clearToptracerCredentials() {
+  if (mode !== "supabase") return;
+  const user = await getUser();
+  if (!user) return;
+  await pgrest(`user_settings?user_id=eq.${user.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      toptracer_token: null,
+      toptracer_auth_status: null,
+      toptracer_auth_error: null,
+      toptracer_username: null,
+    }),
+    headers: { "Prefer": "return=minimal" },
+  });
 }
 
 export async function clearGolfnlCredentials() {

@@ -5,7 +5,8 @@ import {
   loadUserSettings, saveGolfnlCredentials, saveGarminCredentials,
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
-} from "./db.js?v=18";
+  getClubBag, getToptracerStatus, exchangeToptracerCode, clearToptracerCredentials,
+} from "./db.js?v=19";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -92,6 +93,9 @@ function renderDashboard() {
   $("#parGrid").innerHTML = ac.length ? ac.join("")
     : emptyNote("Par-scoring verschijnt zodra er per-hole data is (via een scorecard-screenshot).");
 
+  // Club Bag (Toptracer)
+  renderClubBag();
+
   // Garmin
   const g = stats.garmin;
   if (g.any) {
@@ -131,6 +135,37 @@ function card(label, value, meta) {
   </div>`;
 }
 function emptyNote(t) { return `<p class="empty-note">${esc(t)}</p>`; }
+
+// ---------- club bag ----------
+const CLUB_ORDER = [
+  "driver","3_wood","5_wood","7_wood","hybrid","2_iron","3_iron","4_iron","5_iron",
+  "6_iron","7_iron","8_iron","9_iron","pitching_wedge","gap_wedge","sand_wedge",
+  "lob_wedge","putter",
+];
+
+async function renderClubBag() {
+  const title = $("#clubBagTitle");
+  const grid = $("#clubBagGrid");
+  if (!title || !grid) return;
+  try {
+    const clubs = await getClubBag();
+    if (!clubs.length) { title.hidden = true; grid.innerHTML = ""; return; }
+    title.hidden = false;
+    const sorted = clubs.slice().sort((a, b) => {
+      const ai = CLUB_ORDER.indexOf(a.club_type);
+      const bi = CLUB_ORDER.indexOf(b.club_type);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    grid.innerHTML = sorted.map((c) => {
+      const carry = c.avg_carry_m != null ? `${Math.round(c.avg_carry_m)} m` : "—";
+      const total = c.avg_total_m != null ? ` (${Math.round(c.avg_total_m)} m)` : "";
+      return card(esc(c.club_display_name || c.club_type), carry, `carry${total}`);
+    }).join("");
+  } catch { title.hidden = true; }
+}
 
 // ---------- round list ----------
 function renderRoundList() {
@@ -605,6 +640,28 @@ function showGolfnlLinked(username) {
   if (summary) summary.textContent = linked ? "GOLF.NL ✓ gekoppeld" : "GOLF.NL inloggegevens";
 }
 
+// ---------- toptracer koppelen ----------
+function showToptracerLinked(username) {
+  const linked = !!username;
+  const linkedState = $("#toptracerLinkedState");
+  const unlinkedState = $("#toptracerUnlinkedState");
+  if (!linkedState || !unlinkedState) return;
+  linkedState.hidden = !linked;
+  unlinkedState.hidden = linked;
+  if (username) $("#toptracerLinkedUser").textContent = username;
+  const summary = document.querySelector("#toptracerDetails summary");
+  if (summary) summary.textContent = linked ? "Toptracer ✓ gekoppeld" : "Toptracer koppelen";
+}
+
+async function generatePkce() {
+  const verifier = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(48))))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return { verifier, challenge };
+}
+
 // ---------- garmin koppelen ----------
 function showGarminLinked(username) {
   const linked = !!username;
@@ -702,6 +759,8 @@ async function main() {
     onSync("sync-golfnl.yml", $("#syncGolfnlBtn"), syncStatus));
   $("#syncGarminBtn")?.addEventListener("click", () =>
     onSync("sync-garmin.yml", $("#syncGarminBtn"), syncStatus));
+  $("#syncToptracerBtn")?.addEventListener("click", () =>
+    onSync("sync-toptracer.yml", $("#syncToptracerBtn"), syncStatus));
 
   $("#golfnlSaveBtn")?.addEventListener("click", async () => {
     const username = $("#golfnlUsername").value.trim();
@@ -785,6 +844,82 @@ async function main() {
     }
   });
 
+  // Toptracer
+  let toptracerCodeVerifier = null;
+
+  $("#toptracerAuthBtn")?.addEventListener("click", async () => {
+    const msg = $("#toptracerMsg");
+    try {
+      const { verifier, challenge } = await generatePkce();
+      toptracerCodeVerifier = verifier;
+      const state = Math.random().toString(36).slice(2);
+      const params = new URLSearchParams({
+        client_id: "trca",
+        response_type: "code",
+        redirect_uri: "com.toptracer.community.dev:/callback",
+        scope: "openid",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        state,
+      });
+      const authUrl = `https://login.toptracer.com/realms/toptracer/protocol/openid-connect/auth?${params}`;
+      window.open(authUrl, "_blank");
+      $("#toptracerStep2").hidden = false;
+      if (msg) { msg.textContent = "Log in bij Toptracer en plak de callback-URL hieronder."; msg.className = "sync-status"; }
+    } catch (err) {
+      if (msg) { msg.textContent = "Fout: " + (err.message || err); msg.className = "sync-status err"; }
+    }
+  });
+
+  $("#toptracerCodeBtn")?.addEventListener("click", async () => {
+    const msg = $("#toptracerMsg");
+    const raw = $("#toptracerCallbackUrl")?.value?.trim() || "";
+    if (!raw || !toptracerCodeVerifier) {
+      if (msg) { msg.textContent = "Plak de volledige callback-URL en klik opnieuw op Inloggen."; msg.className = "sync-status err"; }
+      return;
+    }
+    let code;
+    try {
+      const url = raw.startsWith("http") ? new URL(raw) : new URL("https://x?" + raw.split("?")[1]);
+      code = url.searchParams.get("code");
+    } catch { code = null; }
+    if (!code) {
+      const m = raw.match(/[?&]code=([^&]+)/);
+      code = m ? m[1] : null;
+    }
+    if (!code) {
+      if (msg) { msg.textContent = "Geen code gevonden in de URL. Kopieer de volledige adresbalk-URL."; msg.className = "sync-status err"; }
+      return;
+    }
+    if (msg) { msg.textContent = "Koppelen…"; msg.className = "sync-status"; }
+    try {
+      const result = await exchangeToptracerCode(code, toptracerCodeVerifier);
+      toptracerCodeVerifier = null;
+      $("#toptracerCallbackUrl").value = "";
+      $("#toptracerStep2").hidden = true;
+      showToptracerLinked(result.username || "–");
+      if (msg) { msg.textContent = "✓ Toptracer gekoppeld!"; msg.className = "sync-status ok"; }
+      setTimeout(() => { if (msg) msg.textContent = ""; }, 5000);
+      renderClubBag();
+    } catch (err) {
+      if (msg) { msg.textContent = "Koppelen mislukt: " + (err.message || err); msg.className = "sync-status err"; }
+    }
+  });
+
+  $("#toptracerUnlinkBtn")?.addEventListener("click", async () => {
+    if (!confirm("Toptracer ontkoppelen? De opgeslagen koppeling wordt gewist.")) return;
+    const msg = $("#toptracerMsg");
+    try {
+      await clearToptracerCredentials();
+      showToptracerLinked(null);
+      toptracerCodeVerifier = null;
+      if (msg) msg.textContent = "";
+      $("#toptracerDetails").open = false;
+    } catch (err) {
+      if (msg) { msg.textContent = "Ontkoppelen mislukt: " + (err.message || err); msg.className = "sync-status err"; }
+    }
+  });
+
   $("#garminUnlinkBtn")?.addEventListener("click", async () => {
     if (!confirm("Garmin Connect ontkoppelen? De gekoppelde gegevens worden gewist.")) return;
     const msg = $("#garminMsg");
@@ -843,6 +978,11 @@ async function main() {
         } else {
           if (s.garmin_username) $("#garminUsername").value = s.garmin_username;
           showGarminLinked(null);
+        }
+        if (s.toptracer_auth_status === "completed" && s.toptracer_username) {
+          showToptracerLinked(s.toptracer_username);
+        } else {
+          showToptracerLinked(null);
         }
       });
       // Herstel lopende Garmin-koppeling na pagina-refresh.

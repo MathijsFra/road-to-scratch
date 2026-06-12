@@ -77,6 +77,9 @@
       <h2 class="section-title">Garmin gemiddelden</h2>
       <div class="stat-grid" id="garminGrid"></div>
 
+      <h2 class="section-title" id="clubBagTitle" hidden>Club Bag (Toptracer)</h2>
+      <div class="stat-grid" id="clubBagGrid"></div>
+
       <h2 class="section-title">Exceptionele scores (EXS)</h2>
       <div id="exsList" class="exs-list"></div>
 
@@ -268,6 +271,7 @@
         <div class="sync-row">
           <button class="btn btn-ghost btn-sm" id="syncGolfnlBtn">↻ GOLF.NL</button>
           <button class="btn btn-ghost btn-sm" id="syncGarminBtn">↻ Garmin</button>
+          <button class="btn btn-ghost btn-sm" id="syncToptracerBtn">↻ Toptracer</button>
         </div>
         <p id="syncStatus" class="sync-status"></p>
       </div>
@@ -294,6 +298,30 @@
             <button type="button" class="btn btn-primary btn-sm" id="golfnlSaveBtn">Opslaan</button>
           </div>
           <p id="golfnlMsg" class="sync-status"></p>
+        </div>
+      </details>
+      <details class="adv sync-token-details" id="toptracerDetails">
+        <summary>Toptracer koppelen</summary>
+        <div class="adv-body">
+          <div id="toptracerLinkedState" hidden>
+            <div class="settings-row">
+              <span class="settings-label">Gekoppeld als</span>
+              <span id="toptracerLinkedUser" class="settings-value garmin-linked-name">–</span>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="toptracerUnlinkBtn" style="margin-top:12px;width:100%">Ontkoppelen</button>
+          </div>
+          <div id="toptracerUnlinkedState">
+            <p class="hint">Koppel je Toptracer-account om club-afstanden (driving range) in de app te zien.</p>
+            <button type="button" class="btn btn-primary btn-sm" id="toptracerAuthBtn">Inloggen bij Toptracer</button>
+            <div id="toptracerStep2" hidden style="margin-top:12px">
+              <p class="hint">Na het inloggen stuurt Toptracer je naar een pagina die niet opent. Kopieer de volledige URL uit de adresbalk en plak hem hieronder.</p>
+              <label>Callback-URL
+                <input type="text" id="toptracerCallbackUrl" placeholder="com.toptracer.community.dev:/callback?code=…" autocomplete="off" />
+              </label>
+              <button type="button" class="btn btn-primary btn-sm" id="toptracerCodeBtn" style="margin-top:8px">Koppelen</button>
+            </div>
+          </div>
+          <p id="toptracerMsg" class="sync-status"></p>
         </div>
       </details>
       <details class="adv sync-token-details" id="garminDetails">
@@ -341,6 +369,6 @@
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instellingen</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=19"></script>
+  <script type="module" src="js/app.js?v=20"></script>
 </body>
 </html>

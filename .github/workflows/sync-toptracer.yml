@@ -1,0 +1,33 @@
+name: Sync Toptracer
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # elke dag ~08:00 NL-tijd (06:00 UTC)
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: 'Supabase user ID (leeg = alle gebruikers)'
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Sync Toptracer -> Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOLF_USER_ID: ${{ inputs.user_id }}
+          LOG_LEVEL: DEBUG
+        run: python scripts/sync_toptracer.py
