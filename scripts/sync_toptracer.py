@@ -161,12 +161,12 @@ def sb_set_status(user_id: str, status: str, error: str | None = None) -> None:
         log.warning("  Status bijwerken mislukt: %s", e)
 
 
-def sb_upsert(table: str, rows: list[dict]) -> None:
+def sb_upsert(table: str, rows: list[dict], on_conflict: str) -> None:
     if not rows:
         return
     request_with_retry(
         "POST",
-        f"{SUPABASE_URL}/rest/v1/{table}",
+        f"{SUPABASE_URL}/rest/v1/{table}?on_conflict={on_conflict}",
         headers={**sb_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
         data=json.dumps(rows),
         timeout=60,
@@ -188,7 +188,7 @@ def sb_upsert_clubs(user_id: str, clubs: list[dict]) -> int:
             "updated_at": dt.datetime.utcnow().isoformat() + "Z",
         })
     if rows:
-        sb_upsert("toptracer_clubs", rows)
+        sb_upsert("toptracer_clubs", rows, "user_id,club_type")
     return len(rows)
 
 
@@ -205,7 +205,7 @@ def sb_upsert_stats(user_id: str, stats: dict) -> None:
         "top_club_speed":     gs.get("topClubSpeed"),
         "updated_at":         dt.datetime.utcnow().isoformat() + "Z",
     }
-    sb_upsert("toptracer_stats", [row])
+    sb_upsert("toptracer_stats", [row], "user_id")
 
 
 def _session_row(user_id: str, s: dict) -> dict:
@@ -293,7 +293,7 @@ def sb_upsert_sessions(user_id: str, sessions: list[dict]) -> tuple[int, int]:
         return 0, 0
 
     session_rows = [_session_row(user_id, s) for s in sessions]
-    sb_upsert("toptracer_sessions", session_rows)
+    sb_upsert("toptracer_sessions", session_rows, "user_id,toptracer_id")
 
     # Sessie-DB-IDs ophalen voor de foreign key in shots
     toptracer_ids = [s["id"] for s in sessions]
@@ -313,7 +313,7 @@ def sb_upsert_sessions(user_id: str, sessions: list[dict]) -> tuple[int, int]:
 
     # Slagen in batches van 200
     for i in range(0, len(all_shots), 200):
-        sb_upsert("toptracer_shots", all_shots[i:i + 200])
+        sb_upsert("toptracer_shots", all_shots[i:i + 200], "user_id,toptracer_shot_id")
 
     return len(session_rows), len(all_shots)
 
