@@ -1,0 +1,45 @@
+name: Seed Golfbanen
+
+on:
+  schedule:
+    - cron: "45 6 * * *"   # dagelijks ~08:45 NL-tijd — na de andere syncs
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Modus: discover (zoek IDs) of fetch (haal details op)'
+        required: false
+        default: 'fetch'
+        type: choice
+        options:
+          - fetch
+          - discover
+          - status
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Seed golfbanen
+        env:
+          SUPABASE_URL:            ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:    ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Voeg meerdere keys toe als GitHub Secrets voor meer dagelijks budget
+          # Elke key geeft 50 extra verzoeken/dag
+          GOLFCOURSEAPI_KEY_1:     ${{ secrets.GOLFCOURSEAPI_KEY_1 }}
+          GOLFCOURSEAPI_KEY_2:     ${{ secrets.GOLFCOURSEAPI_KEY_2 }}
+          GOLFCOURSEAPI_KEY_3:     ${{ secrets.GOLFCOURSEAPI_KEY_3 }}
+          GOLFCOURSEAPI_KEY_4:     ${{ secrets.GOLFCOURSEAPI_KEY_4 }}
+          GOLFCOURSEAPI_KEY_5:     ${{ secrets.GOLFCOURSEAPI_KEY_5 }}
+          GOLF_COUNTRY:            NL
+          LOG_LEVEL:               INFO
+        run: python scripts/seed_courses.py ${{ inputs.mode || 'fetch' }}
