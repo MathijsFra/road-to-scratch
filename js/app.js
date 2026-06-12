@@ -208,6 +208,7 @@ function renderBagGrid() {
     return ai - bi;
   });
 
+  const knownTypes = new Set(CLUB_ORDER);
   const byType = Object.fromEntries(sorted.map((c) => [c.club_type, c]));
   let html = "";
   for (const group of CLUB_GROUPS) {
@@ -216,6 +217,17 @@ function renderBagGrid() {
     html += `<div class="bag-group-label">${group.label}</div>`;
     html += `<div class="stat-grid bag-group-grid">`;
     html += inGroup.map((c) => {
+      const val = c[field] != null ? `${Math.round(c[field])} m` : "—";
+      const sub = c.shot_count ? `${label} · ${c.shot_count} slagen` : label;
+      return card(esc(c.club_display_name || c.club_type), val, sub);
+    }).join("");
+    html += `</div>`;
+  }
+  const overig = sorted.filter((c) => !knownTypes.has(c.club_type));
+  if (overig.length) {
+    html += `<div class="bag-group-label">Overig</div>`;
+    html += `<div class="stat-grid bag-group-grid">`;
+    html += overig.map((c) => {
       const val = c[field] != null ? `${Math.round(c[field])} m` : "—";
       const sub = c.shot_count ? `${label} · ${c.shot_count} slagen` : label;
       return card(esc(c.club_display_name || c.club_type), val, sub);
