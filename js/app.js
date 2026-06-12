@@ -1,10 +1,11 @@
 import {
   initDb, getMode, getRounds, addRound, updateRound, deleteRound,
   processImage, saveScreenshot, resolveScreenshot, parseScreenshots,
-  getUser, signIn, signOut, onAuthChange, triggerWorkflow,
+  getUser, signIn, signUp, signOut, onAuthChange, triggerWorkflow,
   loadUserSettings, saveGolfnlCredentials, saveGarminCredentials,
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
-} from "./db.js?v=13";
+  resetGarminAuthStatus,
+} from "./db.js?v=14";
 import { computeStats } from "./stats.js?v=11";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -546,6 +547,27 @@ async function onLogin(e) {
   }
 }
 
+async function onSignUp(e) {
+  e.preventDefault();
+  const msg = $("#signupMsg");
+  msg.textContent = "Account aanmaken…";
+  msg.className = "form-msg";
+  $("#signupBtn").disabled = true;
+  try {
+    const data = await signUp($("#signupEmail").value.trim(), $("#signupPassword").value);
+    if (data?.user && !data?.session) {
+      msg.textContent = "✓ Controleer je e-mail voor de bevestigingslink.";
+      msg.className = "form-msg ok";
+    }
+    // Als session aanwezig is, handelt onAuthChange alles af.
+  } catch (err) {
+    msg.textContent = "Registreren mislukt: " + (err.message || err);
+    msg.className = "form-msg err";
+  } finally {
+    $("#signupBtn").disabled = false;
+  }
+}
+
 // ---------- sync ----------
 async function onSync(workflowFile, btn, statusEl) {
   btn.disabled = true;
@@ -631,6 +653,17 @@ async function main() {
   $("#f_holes").addEventListener("change", () => buildHolesGrid(collectHolesGrid()));
   $("#clearHolesBtn").addEventListener("click", () => buildHolesGrid([]));
   $("#loginForm").addEventListener("submit", onLogin);
+  $("#signupForm")?.addEventListener("submit", onSignUp);
+  $("#showSignupBtn")?.addEventListener("click", () => {
+    $("#loginForm").hidden = true;
+    $("#signupForm").hidden = false;
+    $("#signupMsg").textContent = "";
+  });
+  $("#showLoginBtn")?.addEventListener("click", () => {
+    $("#signupForm").hidden = true;
+    $("#loginForm").hidden = false;
+    $("#loginMsg").textContent = "";
+  });
   $("#logoutBtn").addEventListener("click", () => signOut());
 
   const syncStatus = $("#syncStatus");
@@ -674,6 +707,7 @@ async function main() {
       msg.textContent = "Opslaan…";
       msg.className = "sync-status";
       await saveGarminCredentials(username, password);
+      await resetGarminAuthStatus();
       await triggerGarminAuth();
       $("#garminPassword").value = "";
       updateGarminUI("pending", null);
@@ -737,6 +771,7 @@ async function main() {
       await refresh();
       loadUserSettings().then((s) => {
         if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
+        if (s.garmin_username) $("#garminUsername").value = s.garmin_username;
       });
       // Herstel lopende Garmin-koppeling na pagina-refresh.
       getGarminAuthStatus().then(({ status, error }) => {

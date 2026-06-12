@@ -239,12 +239,36 @@ export async function resolveScreenshot(value) {
 }
 
 // ---------- Gebruikersinstellingen ----------
+export async function signUp(email, password) {
+  const { data, error } = await client.auth.signUp({ email, password });
+  if (error) {
+    if (error.message.toLowerCase().includes("already registered")) {
+      throw new Error("Dit e-mailadres is al geregistreerd.");
+    }
+    throw error;
+  }
+  return data;
+}
+
 export async function loadUserSettings() {
   if (mode !== "supabase") return {};
   try {
-    const rows = await pgrest("user_settings?select=golfnl_username&limit=1");
+    const rows = await pgrest("user_settings?select=golfnl_username,garmin_username&limit=1");
     return Array.isArray(rows) && rows.length ? rows[0] : {};
   } catch { return {}; }
+}
+
+export async function resetGarminAuthStatus() {
+  if (mode !== "supabase") return;
+  try {
+    const user = await getUser();
+    if (!user) return;
+    await pgrest(`user_settings?user_id=eq.${user.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ garmin_auth_status: null, garmin_auth_error: null }),
+      headers: { "Prefer": "return=minimal" },
+    });
+  } catch { /* rij bestaat mogelijk nog niet — negeer */ }
 }
 
 // Slaat GOLF.NL-credentials op via de Edge Function (die het wachtwoord versleutelt).

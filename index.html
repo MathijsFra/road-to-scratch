@@ -39,6 +39,21 @@
       </label>
       <button type="submit" class="btn btn-primary" id="loginBtn">Inloggen</button>
       <p id="loginMsg" class="form-msg"></p>
+      <p class="login-toggle">Nog geen account? <button type="button" id="showSignupBtn" class="link-btn">Registreren</button></p>
+    </form>
+    <form id="signupForm" class="login-card" autocomplete="on" hidden>
+      <div class="login-logo">⛳</div>
+      <h2>Golf Tracker</h2>
+      <p class="login-sub">Maak een nieuw account aan.</p>
+      <label>E-mail
+        <input type="email" id="signupEmail" autocomplete="username" required />
+      </label>
+      <label>Wachtwoord <span class="optional">(min. 6 tekens)</span>
+        <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6" />
+      </label>
+      <button type="submit" class="btn btn-primary" id="signupBtn">Account aanmaken</button>
+      <p id="signupMsg" class="form-msg"></p>
+      <p class="login-toggle">Al een account? <button type="button" id="showLoginBtn" class="link-btn">Inloggen</button></p>
     </form>
   </div>
 
@@ -304,6 +319,6 @@
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instellingen</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=13"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>
