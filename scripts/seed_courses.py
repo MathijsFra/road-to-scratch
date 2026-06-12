@@ -34,6 +34,9 @@ from golfutil import run_main, setup_logging
 log = setup_logging("seed_courses")
 
 BASE_URL      = "https://api.golfcourseapi.com/v1"
+# OPMERKING: GolfCourseAPI.com dekt momenteel alleen VS/VK/Canada — geen NL-banen.
+# Dit script blijft klaar voor als ze NL toevoegen, of voor toekomstige gebruik.
+# NL-baandata wordt nu opgebouwd via sync_golfnl.py (extract uit scorekaart-HTML).
 COUNTRY       = os.environ.get("GOLF_COUNTRY", "NL")
 LIMIT_PER_KEY = 50   # dagelijks verzoek-budget per API-key
 SUPABASE_URL  = os.environ.get("SUPABASE_URL", "").rstrip("/")

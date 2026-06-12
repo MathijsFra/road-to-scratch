@@ -164,6 +164,8 @@ def parse_scores_html(html: str) -> list[dict]:
             if lab and txt:
                 details[lab.get_text(strip=True)] = txt.get_text(" ", strip=True)
 
+        log.debug("Score-details labels: %s", list(details.keys()))
+
         total = to_int(details.get("Totaal aantal slagen"))
         is_qualifying = details.get("Qualifying") == "Ja"
         rounds.append({
@@ -236,7 +238,58 @@ def parse_scorecard_html(html: str) -> dict:
             "stb": to_int(stb_cell.get_text()) if stb_cell else None,
             "fairway": None, "gir": None, "putts": None, "penalties": None,
         })
-    return {"holes": len(holes_data), "holes_data": holes_data}
+
+    # Probeer course rating + slope uit de rest van de pagina te halen.
+    # Golf.nl toont deze voor de handicap-differentiaal-berekening.
+    cr_slope = extract_cr_slope_from_html(soup)
+
+    return {"holes": len(holes_data), "holes_data": holes_data, **cr_slope}
+
+
+def extract_cr_slope_from_html(soup) -> dict:
+    """Zoekt course rating en slope rating in de scorekaart-HTML.
+    Logt alle gevonden label-waarde-paren in DEBUG zodat we nieuwe velden kunnen ontdekken."""
+    result = {}
+
+    # Strategie 1: dezelfde label-structuur als de scores-lijst
+    details = {}
+    for c in soup.select(".c-score__details__content"):
+        lab = c.select_one(".c-score__details__label")
+        txt = c.select_one(".c-score__details__text")
+        if lab and txt:
+            details[lab.get_text(strip=True)] = txt.get_text(" ", strip=True)
+
+    if details:
+        log.debug("Scorekaart detail-labels: %s", details)
+
+    # Bekende NL labels voor course rating en slope
+    cr_labels    = ["Course Rating", "CR", "Courserating", "Course rating"]
+    slope_labels = ["Slope Rating", "Slope", "Sloperating", "Slope rating"]
+
+    for label in cr_labels:
+        if label in details:
+            result["course_rating"] = to_float(details[label])
+            break
+    for label in slope_labels:
+        if label in details:
+            result["slope_rating"] = to_int(details[label])
+            break
+
+    # Strategie 2: vrije tekst-scan op typische CR/slope-patronen
+    if "course_rating" not in result or "slope_rating" not in result:
+        text = soup.get_text(" ")
+        if "course_rating" not in result:
+            m = re.search(r"(?:Course\s*Rating|CR)[^\d]*(\d{2,3}[.,]\d)", text, re.IGNORECASE)
+            if m:
+                result["course_rating"] = to_float(m.group(1))
+        if "slope_rating" not in result:
+            m = re.search(r"Slope(?:\s*Rating)?[^\d]*(\d{2,3})\b", text, re.IGNORECASE)
+            if m:
+                val = int(m.group(1))
+                if 55 <= val <= 155:   # geldig slope-bereik per WHS
+                    result["slope_rating"] = val
+
+    return result
 
 
 def iso_date(v) -> str | None:
@@ -266,6 +319,78 @@ def supabase_headers() -> dict:
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
     }
+
+
+def derive_par(holes_data: list[dict]) -> int | None:
+    """Berekent de totale par vanuit per-hole data."""
+    pars = [h.get("par") for h in holes_data if h.get("par") is not None]
+    return sum(pars) if pars else None
+
+
+def upsert_course_tee(
+    course_name: str,
+    tee_name: str | None,
+    holes: int,
+    par: int | None = None,
+    course_rating: float | None = None,
+    slope_rating: int | None = None,
+) -> tuple[str | None, str | None]:
+    """
+    Upsert course + tee in Supabase. Geeft (course_id, course_tee_id) terug.
+    Velden die None zijn worden niet overschreven (laat bestaande waarden staan).
+    """
+    if not course_name:
+        return None, None
+    try:
+        # 1. Course upserten op naam
+        course_row = {"name": course_name, "country": "NL", "updated_at": "now()"}
+        resp = request_with_retry(
+            "POST",
+            f"{SUPABASE_URL}/rest/v1/courses",
+            headers={**supabase_headers(),
+                     "Prefer": "resolution=merge-duplicates,return=representation"},
+            data=json.dumps(course_row),
+            timeout=15,
+        )
+        rows = resp.json()
+        if not rows or not isinstance(rows, list):
+            log.debug("Course upsert gaf geen rij terug: %s", resp.text[:100])
+            return None, None
+        course_id = rows[0]["id"]
+
+        # 2. Tee upserten als we een tee-naam hebben
+        if not tee_name:
+            return course_id, None
+
+        tee_row: dict = {
+            "course_id":  course_id,
+            "tee_name":   tee_name,
+            "tee_gender": "unspecified",
+            "holes":      holes,
+        }
+        # Alleen invullen als we de waarde hebben; niet overschrijven met None
+        if par is not None:
+            tee_row["par"] = par
+        if course_rating is not None:
+            tee_row["course_rating"] = course_rating
+        if slope_rating is not None:
+            tee_row["slope_rating"] = slope_rating
+
+        resp2 = request_with_retry(
+            "POST",
+            f"{SUPABASE_URL}/rest/v1/course_tees",
+            headers={**supabase_headers(),
+                     "Prefer": "resolution=merge-duplicates,return=representation"},
+            data=json.dumps(tee_row),
+            timeout=15,
+        )
+        tee_rows = resp2.json()
+        course_tee_id = tee_rows[0]["id"] if tee_rows and isinstance(tee_rows, list) else None
+        return course_id, course_tee_id
+
+    except Exception as e:  # noqa: BLE001
+        log.debug("Course/tee upsert mislukt (niet kritiek): %s", e)
+        return None, None
 
 
 def sb_get_user_settings() -> list[dict]:
@@ -308,6 +433,10 @@ def push_to_supabase(new_rounds: list[dict], user_id: str) -> int:
         row = {**{k: v for k, v in rd.items() if not k.startswith("_")}, "user_id": user_id}
         if rd.get("_scorecardid"):
             row["golfnl_scorecard_id"] = rd["_scorecardid"]
+        if rd.get("_course_id"):
+            row["course_id"] = rd["_course_id"]
+        if rd.get("_course_tee_id"):
+            row["course_tee_id"] = rd["_course_tee_id"]
         try:
             request_with_retry(
                 "POST", f"{SUPABASE_URL}/rest/v1/rounds",
@@ -411,6 +540,15 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
                     rd["holes_data"] = d["holes_data"]
                     rd["double_bogeys"] = derive_double_bogeys(d["holes_data"])
                     log.debug("Scorekaart opgehaald: %s (%d holes).", rd.get("date"), rd["holes"])
+                # Koppel course rating + slope als gevonden in de HTML
+                if d.get("course_rating") is not None:
+                    rd["_course_rating"] = d["course_rating"]
+                if d.get("slope_rating") is not None:
+                    rd["_slope_rating"] = d["slope_rating"]
+                log.debug(
+                    "CR/slope uit scorekaart: CR=%s Slope=%s",
+                    d.get("course_rating"), d.get("slope_rating"),
+                )
             except Exception as e:  # noqa: BLE001
                 failed_scorecards += 1
                 log.warning("Scorekaart %s overgeslagen: %s", rd.get("_scorecardid"), e)
@@ -436,6 +574,23 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
     new_rounds = [r for r in rounds if r.get("date") and find_sb_id(r) is None]
     existing_golfnl = [r for r in rounds if r.get("date") and find_sb_id(r) is not None]
     log.info("%d nieuwe ronde(s), %d bestaande ronde(s) te updaten.", len(new_rounds), len(existing_golfnl))
+
+    # Upsert course + tee voor alle rondes en sla de IDs op.
+    # Zo bouwen we automatisch een baandatabase op vanuit gespeelde rondes.
+    for rd in rounds:
+        par = derive_par(rd.get("holes_data") or [])
+        course_id, course_tee_id = upsert_course_tee(
+            course_name=rd.get("course", ""),
+            tee_name=rd.get("tee"),
+            holes=rd.get("holes", 18),
+            par=par,
+            course_rating=rd.get("_course_rating"),
+            slope_rating=rd.get("_slope_rating"),
+        )
+        rd["_course_id"] = course_id
+        rd["_course_tee_id"] = course_tee_id
+    courses_linked = sum(1 for r in rounds if r.get("_course_tee_id"))
+    log.info("%d ronde(s) gekoppeld aan een baan+tee.", courses_linked)
 
     # Update bestaande rondes met alle beschikbare GOLF.NL-data.
     # Overschrijft score/course_handicap/holes_data/double_bogeys — raakt Garmin-velden niet aan.
@@ -464,6 +619,10 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
         # Sla scorecard-ID op als die er nog niet was (migratie van bestaande rondes)
         if rd.get("_scorecardid") and not sb_round.get("golfnl_scorecard_id"):
             fields["golfnl_scorecard_id"] = rd["_scorecardid"]
+        if rd.get("_course_id"):
+            fields["course_id"] = rd["_course_id"]
+        if rd.get("_course_tee_id"):
+            fields["course_tee_id"] = rd["_course_tee_id"]
         if not fields:
             continue
         try:
