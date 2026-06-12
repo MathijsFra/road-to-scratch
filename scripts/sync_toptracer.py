@@ -19,6 +19,8 @@ import json
 import datetime as dt
 from urllib.parse import urlencode, urlparse, parse_qs
 
+import requests as _requests
+from bs4 import BeautifulSoup
 from golfutil import setup_logging, require_env, request_with_retry, run_main
 
 log = setup_logging("toptracer")
@@ -196,16 +198,14 @@ def refresh_access_token(refresh_token: str) -> tuple[str, str]:
     return access_token, new_refresh
 
 
-def headless_login(email: str, password: str) -> tuple[str, str]:
+def http_login(email: str, password: str) -> tuple[str, str]:
     """
-    Logt headless in bij Toptracer via Playwright + PKCE.
+    Logt in bij Toptracer via directe HTTP-requests (geen browser nodig).
 
-    Onderschept de 302-redirect van Keycloak op responsniveau,
-    zodat we de auth-code uit de Location-header kunnen lezen
-    voordat de browser probeert de custom URI-scheme te openen.
+    Keycloak's loginpagina is een gewoon HTML-formulier. We halen de pagina op,
+    lezen de form-action URL uit en posten de credentials. De 302-redirect naar
+    de custom URI-scheme bevat de auth-code in de Location-header.
     """
-    from playwright.sync_api import sync_playwright  # type: ignore[import]
-
     verifier, challenge = _pkce_pair()
     auth_url = TOPTRACER_AUTH_URL + "?" + urlencode({
         "client_id": TOPTRACER_CLIENT_ID,
@@ -217,43 +217,64 @@ def headless_login(email: str, password: str) -> tuple[str, str]:
         "state": secrets.token_hex(8),
     })
 
-    captured_code: list[str] = []
+    session = _requests.Session()
+    session.headers["User-Agent"] = "Toptracer/1.0 (Android)"
 
-    def on_response(response) -> None:  # noqa: ANN001
-        if response.status in (301, 302, 303, 307, 308):
-            location = response.headers.get("location", "")
-            if location.startswith(TOPTRACER_REDIRECT_URI):
-                qs = parse_qs(urlparse(location).query)
-                code = (qs.get("code") or [None])[0]
-                if code:
-                    captured_code.append(code)
+    # Stap 1: loginpagina ophalen (Keycloak zet een sessie-cookie)
+    log.debug("  HTTP-login starten voor %s…", email)
+    r1 = session.get(auth_url, timeout=15)
+    r1.raise_for_status()
 
-    log.debug("  Headless login starten voor %s…", email)
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.on("response", on_response)
+    # Stap 2: form-action URL parsen
+    soup = BeautifulSoup(r1.text, "html.parser")
+    form = soup.find("form", id="kc-form-login") or soup.find("form")
+    if not form or not form.get("action"):
+        raise RuntimeError("Geen login-formulier gevonden op de Toptracer-inlogpagina.")
+    action_url = str(form["action"])
 
-        page.goto(auth_url, wait_until="networkidle", timeout=20_000)
-        page.wait_for_selector("input#username", timeout=10_000)
-        page.fill("input#username", email)
-        page.fill("input#password", password)
+    # Stap 3: gebruikersnaam posten (stap 1 van tweestaps-flow)
+    r2 = session.post(
+        action_url,
+        data={"username": email, "credentialId": "", "login": "Log In"},
+        allow_redirects=False,
+        timeout=15,
+    )
 
-        try:
-            page.click("input#kc-login", timeout=5_000)
-            page.wait_for_timeout(3_000)
-        except Exception:  # noqa: BLE001
-            pass  # custom-scheme navigatie gooit een fout; code is al onderschept
+    # Stap 4: wachtwoord-pagina verwerken
+    if r2.status_code == 200:
+        soup2 = BeautifulSoup(r2.text, "html.parser")
+        form2 = soup2.find("form")
+        if not form2 or not form2.get("action"):
+            raise RuntimeError("Geen wachtwoord-formulier gevonden na username-stap.")
+        action2 = str(form2["action"])
+        r3 = session.post(
+            action2,
+            data={"username": email, "password": password, "credentialId": "", "login": "Log In"},
+            allow_redirects=False,
+            timeout=15,
+        )
+        location = r3.headers.get("location", "")
+    else:
+        location = r2.headers.get("location", "")
 
-        browser.close()
+    # Eventuele tussenpagina volgen
+    if location and not location.startswith(TOPTRACER_REDIRECT_URI):
+        r_extra = session.get(location, allow_redirects=False, timeout=15)
+        location = r_extra.headers.get("location", "")
 
-    if not captured_code:
+    if not location.startswith(TOPTRACER_REDIRECT_URI):
         raise RuntimeError(
-            "Geen auth-code ontvangen. Controleer je Toptracer-e-mail en wachtwoord."
+            f"Login mislukt. Controleer je Toptracer-e-mail en wachtwoord."
+            + (f" (redirect: {location[:80]})" if location else "")
         )
 
+    qs = parse_qs(urlparse(location).query)
+    code = (qs.get("code") or [None])[0]
+    if not code:
+        raise RuntimeError(f"Geen auth-code in redirect: {location}")
+
     log.debug("  Auth-code ontvangen, tokens ophalen…")
-    return exchange_code(captured_code[0], verifier)
+    return exchange_code(code, verifier)
 
 
 def graphql(query: str, access_token: str) -> dict:
@@ -293,11 +314,11 @@ def sync_one_user(user: dict) -> int:
         except Exception as e:  # noqa: BLE001
             log.warning("  Refresh-token verlopen (%s). Headless login proberen…", e)
 
-    # Stap 2: headless login als fallback
+    # Stap 2: HTTP-login als fallback
     if not access_token:
         if not email or not password:
-            raise RuntimeError("Geen credentials beschikbaar voor headless login.")
-        access_token, new_refresh = headless_login(email, password)
+            raise RuntimeError("Geen credentials beschikbaar voor login.")
+        access_token, new_refresh = http_login(email, password)
 
     # Vernieuwd refresh-token opslaan
     if new_refresh and new_refresh != refresh_token:
