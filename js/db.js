@@ -277,7 +277,7 @@ export async function loadUserSettings() {
 export async function getClubBag() {
   if (mode !== "supabase") return [];
   try {
-    return await pgrest("toptracer_clubs?select=*&order=avg_carry_m.desc.nullslast");
+    return await pgrest("toptracer_club_stats?select=*&order=median_carry_m.desc.nullslast");
   } catch { return []; }
 }
 

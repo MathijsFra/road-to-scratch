@@ -6,7 +6,7 @@ import {
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
-} from "./db.js?v=20";
+} from "./db.js?v=21";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -183,8 +183,9 @@ async function renderBagView() {
       html += `<div class="bag-group-label">${group.label}</div>`;
       html += `<div class="stat-grid bag-group-grid">`;
       html += inGroup.map((c) => {
-        const carry = c.avg_carry_m != null ? `${Math.round(c.avg_carry_m)} m` : "—";
-        return card(esc(c.club_display_name || c.club_type), carry, "carry");
+        const carry = c.median_carry_m != null ? `${Math.round(c.median_carry_m)} m` : "—";
+        const sub   = c.shot_count ? `mediaan · ${c.shot_count} slagen` : "carry";
+        return card(esc(c.club_display_name || c.club_type), carry, sub);
       }).join("");
       html += `</div>`;
     }
