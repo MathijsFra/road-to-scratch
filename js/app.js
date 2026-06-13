@@ -7,7 +7,7 @@ import {
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats,
-} from "./db.js?v=26";
+} from "./db.js?v=27";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -380,7 +380,7 @@ function roundCard(r, withActions) {
         ${gcell(r.bunkers, "Bunkers")}
         ${gcell(r.bunker_saves, "Saves")}
       </div>` : ""}
-      ${hd.length ? (withActions && r.putts == null && r.gir == null ? holesEditGrid(r) : holesTable(hd)) : (withActions && r.putts == null && r.gir == null ? holesEditGrid(r) : "")}
+      ${hd.length ? (withActions ? holesEditGrid(r) : holesTable(hd)) : ""}
       ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a class="shot-link" data-shot="${esc(u)}" target="_blank" rel="noopener"><img alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
       ${r.notes ? `<div class="round-notes">${esc(r.notes)}</div>` : ""}
       ${!hasContent ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
