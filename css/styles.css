@@ -288,37 +288,23 @@ html, body {
 }
 .bag-group-grid { margin-bottom: 4px; }
 
-/* ---------- Quick edit (GIR/FW/Putts/Pen per ronde) ---------- */
-.quick-edit {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 10px 0 4px;
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-}
-.qe-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
-.qe-input {
-  width: 42px;
-  padding: 4px 6px;
+/* ---------- Inline per-hole edit grid ---------- */
+.holes-edit-wrap { margin: 8px 0 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.holes-save-btn { margin-top: 8px; }
+.holes-table .hcol { font-weight: 700; color: var(--green-800); font-size: 0.85rem; width: 26px; }
+.he-sel, .he-num {
+  padding: 5px 2px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.82rem;
-  text-align: center;
   background: var(--bg);
   color: var(--ink);
-  -moz-appearance: textfield;
+  font-size: 0.8rem;
+  text-align: center;
 }
-.qe-input::-webkit-inner-spin-button,
-.qe-input::-webkit-outer-spin-button { -webkit-appearance: none; }
-.qe-sep { color: var(--muted); font-size: 0.82rem; }
+.he-sel { width: 48px; padding-right: 0; }
+.he-num { width: 40px; -moz-appearance: textfield; }
+.he-num::-webkit-inner-spin-button,
+.he-num::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }

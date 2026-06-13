@@ -353,7 +353,6 @@ function roundCard(r, withActions) {
   const insights = computeInsights(r, rounds);
   const chips = insightChips(insights);
   const hasContent = hasCr || garmin || hd.length || shots.length || r.notes || chips || withActions;
-  const qv = (v) => (v == null ? "" : v);
   return `
   <div class="round-card" data-id="${r.id}">
     <div class="round-head">
@@ -381,24 +380,11 @@ function roundCard(r, withActions) {
         ${gcell(r.bunkers, "Bunkers")}
         ${gcell(r.bunker_saves, "Saves")}
       </div>` : ""}
-      ${hd.length ? holesTable(hd) : ""}
+      ${withActions ? holesEditGrid(r) : hd.length ? holesTable(hd) : ""}
       ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a class="shot-link" data-shot="${esc(u)}" target="_blank" rel="noopener"><img alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
       ${r.notes ? `<div class="round-notes">${esc(r.notes)}</div>` : ""}
       ${!hasContent ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
       ${withActions ? `
-        <div class="quick-edit">
-          <label class="qe-label">GIR</label>
-          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="gir" value="${qv(r.gir)}" placeholder="—">
-          <label class="qe-label">FW</label>
-          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="fairways_hit" value="${qv(r.fairways_hit)}" placeholder="—">
-          <span class="qe-sep">/</span>
-          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="fairways_total" value="${qv(r.fairways_total)}" placeholder="—">
-          <label class="qe-label">Putts</label>
-          <input type="number" inputmode="numeric" min="0" max="72" class="qe-input" data-qe="putts" value="${qv(r.putts)}" placeholder="—">
-          <label class="qe-label">Pen</label>
-          <input type="number" inputmode="numeric" min="0" max="99" class="qe-input" data-qe="penalties" value="${qv(r.penalties)}" placeholder="—">
-          <button class="btn btn-primary btn-sm" data-quicksave="${r.id}">Opslaan</button>
-        </div>
         <div class="detail-actions">
           ${(!r.non_qualifying && !r.golfnl_scorecard_id) ? `<button class="btn btn-ghost btn-sm" data-edit="${r.id}">Bewerken</button>` : ""}
           <button class="btn btn-danger btn-sm" data-del="${r.id}" ${r.non_qualifying ? 'data-nq="true"' : ""}>Verwijderen</button>
@@ -425,6 +411,35 @@ function holesTable(hd) {
   </table>`;
 }
 function num(v) { return v === null || v === undefined || v === "" ? null : Number(v); }
+
+// ---------- inline per-hole editgrid (rondes-tab) ----------
+function holesEditGrid(r) {
+  const n = r.holes || 18;
+  const hd = Array.isArray(r.holes_data) ? r.holes_data : [];
+  const byHole = Object.fromEntries(hd.map((h) => [h.hole, h]));
+  const opt = (val, cur, lbl) => `<option value="${val}"${val === cur ? " selected" : ""}>${lbl}</option>`;
+  const girSel = (hole, v) => {
+    const c = v === true ? "yes" : v === false ? "no" : "";
+    return `<select data-hf="gir" data-hole="${hole}" class="he-sel">${opt("", c, "—")}${opt("yes", c, "✓")}${opt("no", c, "✗")}</select>`;
+  };
+  const fwSel = (hole, v) => {
+    const c = v ?? "";
+    return `<select data-hf="fairway" data-hole="${hole}" class="he-sel">${opt("", c, "—")}${opt("hit", c, "✓")}${opt("left", c, "←")}${opt("right", c, "→")}${opt("miss", c, "✗")}</select>`;
+  };
+  const numIn = (field, hole, val, mx) => `<input type="number" inputmode="numeric" min="0" max="${mx}" data-hf="${field}" data-hole="${hole}" class="he-num" value="${val ?? ""}">`;
+  const rows = Array.from({ length: n }, (_, i) => {
+    const hole = i + 1;
+    const h = byHole[hole] || {};
+    return `<tr><td class="hcol">${hole}</td><td>${girSel(hole, h.gir)}</td><td>${fwSel(hole, h.fairway)}</td><td>${numIn("putts", hole, h.putts, 9)}</td><td>${numIn("penalties", hole, h.penalties, 9)}</td></tr>`;
+  }).join("");
+  return `<div class="holes-edit-wrap">
+    <table class="holes-table">
+      <thead><tr><th>Hole</th><th>GIR</th><th>FW</th><th>Putts</th><th>Pen</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <button class="btn btn-primary btn-sm holes-save-btn" data-holessave="${r.id}">Opslaan</button>
+  </div>`;
+}
 
 // ---------- per-hole invoerraster ----------
 function buildHolesGrid(holesData = []) {
@@ -497,24 +512,46 @@ function bindRoundCards(scope) {
         await refresh();
       }
     }));
-  scope.querySelectorAll("[data-quicksave]").forEach((b) =>
+  scope.querySelectorAll("[data-holessave]").forEach((b) =>
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
-      const id = b.dataset.quicksave;
+      const id = b.dataset.holessave;
       const card = b.closest(".round-card");
-      const readQe = (f) => {
-        const el = card.querySelector(`[data-qe="${f}"]`);
-        if (!el) return null;
-        const v = el.value.trim();
-        return v === "" ? null : Number(v);
-      };
+      const round = rounds.find((r) => r.id === id);
+      if (!round) return;
+
+      const n = round.holes || 18;
+      const existing = Array.isArray(round.holes_data) ? round.holes_data : [];
+      const byHole = Object.fromEntries(existing.map((h) => [h.hole, h]));
+
+      let girCount = 0, fwHit = 0, fwTotal = 0, puttsSum = 0, penSum = 0;
+      const holesData = [];
+
+      for (let hole = 1; hole <= n; hole++) {
+        const prev = byHole[hole] || { hole };
+        const getHf = (field) => card.querySelector(`[data-hf="${field}"][data-hole="${hole}"]`);
+        const gir = (() => { const v = getHf("gir")?.value; return v === "yes" ? true : v === "no" ? false : null; })();
+        const fairway = getHf("fairway")?.value || null;
+        const putts = num(getHf("putts")?.value);
+        const penalties = num(getHf("penalties")?.value);
+
+        holesData.push({ ...prev, hole, gir, fairway, putts, penalties });
+
+        if (gir === true) girCount++;
+        if (fairway != null) { fwTotal++; if (fairway === "hit") fwHit++; }
+        if (putts != null) puttsSum += putts;
+        if (penalties != null) penSum += penalties;
+      }
+
       const patch = {
-        gir:            readQe("gir"),
-        fairways_hit:   readQe("fairways_hit"),
-        fairways_total: readQe("fairways_total"),
-        putts:          readQe("putts"),
-        penalties:      readQe("penalties"),
+        holes_data:     holesData,
+        gir:            girCount   || null,
+        fairways_hit:   fwHit      || null,
+        fairways_total: fwTotal    || null,
+        putts:          puttsSum   || null,
+        penalties:      penSum     || null,
       };
+
       const orig = b.textContent;
       b.textContent = "…";
       b.disabled = true;

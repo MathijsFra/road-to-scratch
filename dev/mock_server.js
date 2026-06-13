@@ -31,7 +31,24 @@ const DEV_USER = {
   role: "authenticated",
   aud: "authenticated",
   created_at: "2026-01-01T00:00:00.000Z",
+  app_metadata: { provider: "email" },
+  user_metadata: {},
 };
+
+// Bouw een nep-JWT die supabase-js client-side kan decoderen (signature wordt niet geverifieerd)
+function makeFakeJwt() {
+  const b64 = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+  const header  = b64({ alg: "HS256", typ: "JWT" });
+  const payload = b64({
+    sub:   DEV_USER_ID,
+    email: "dev@roadtoscratch.nl",
+    role:  "authenticated",
+    aud:   "authenticated",
+    exp:   Math.floor(Date.now() / 1000) + 86400,
+    iat:   Math.floor(Date.now() / 1000),
+  });
+  return `${header}.${payload}.dev-mock-signature`;
+}
 
 // In-memory overlay voor PATCH/POST writes (zodat wijzigingen in de sessie zichtbaar zijn)
 const writes = {};
@@ -106,10 +123,12 @@ const server = createServer(async (req, res) => {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   if (path === "/auth/v1/token") {
+    const token = makeFakeJwt();
     return json(res, 200, {
-      access_token: "dev-access-token",
+      access_token: token,
       token_type: "bearer",
       expires_in: 86400,
+      expires_at: Math.floor(Date.now() / 1000) + 86400,
       refresh_token: "dev-refresh-token",
       user: DEV_USER,
     });
