@@ -81,10 +81,15 @@ html, body {
   inset: 0;
   z-index: 100;
   background: linear-gradient(160deg, #1A1A1A 0%, #0D1A10 100%);
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 24px;
   padding-top: calc(24px + var(--safe-top));
+  padding-bottom: calc(24px + var(--safe-bottom));
+  overflow-y: auto;
+  gap: 0;
 }
 .login-screen[hidden] { display: none !important; }
 .login-card {
@@ -99,11 +104,12 @@ html, body {
   gap: 4px;
 }
 .login-logo-img {
-  width: 200px;
-  height: auto;
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
   display: block;
   margin: 0 auto 2px;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 .login-sub { margin: 0 0 12px; text-align: center; color: var(--muted); font-size: 0.88rem; }
 .login-card label { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 10px; }

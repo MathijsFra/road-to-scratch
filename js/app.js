@@ -947,6 +947,7 @@ function applyTheme(dark) {
 function showApp(show) {
   $("#main").style.display = show ? "" : "none";
   document.querySelector(".tabbar").style.display = show ? "" : "none";
+  document.querySelector(".app-header").hidden = !show;
   $("#loginScreen").hidden = show;
 }
 
