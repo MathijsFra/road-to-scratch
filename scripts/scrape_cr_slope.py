@@ -207,7 +207,7 @@ def fill_all(session: requests.Session) -> tuple[int, int, int]:
             club_id = club_cache[club_name]
 
             for loop in loops:
-                loop_name = loop.get("LoopName", "")
+                loop_name = loop.get("Name", "")
                 holes = loop_holes(loop_name) or 18
                 categories = loop.get("Categories") or []
 
