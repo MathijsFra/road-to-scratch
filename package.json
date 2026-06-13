@@ -1,0 +1,11 @@
+{
+  "name": "road-to-scratch",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev/mock_server.js & npx --yes serve . -p 8000 --no-clipboard",
+    "mock": "node dev/mock_server.js",
+    "serve": "npx --yes serve . -p 8000 --no-clipboard",
+    "seed": "node dev/seed_fixtures.js"
+  }
+}

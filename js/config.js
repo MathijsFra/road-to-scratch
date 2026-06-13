@@ -13,7 +13,9 @@
 //  (zie supabase/schema.sql).
 // ============================================================
 
-export const SUPABASE_URL = "https://ptrccpfqnvygrqmsykob.supabase.co";
-export const SUPABASE_ANON_KEY = "sb_publishable_mY2XiMffONLDlVLDOnkTqw_vEgP9Iwd";
+const _devMode = typeof localStorage !== "undefined" && localStorage.getItem("DEV_MODE") === "true";
+
+export const SUPABASE_URL     = _devMode ? "http://localhost:3001" : "https://ptrccpfqnvygrqmsykob.supabase.co";
+export const SUPABASE_ANON_KEY = _devMode ? "dev-anon-key"        : "sb_publishable_mY2XiMffONLDlVLDOnkTqw_vEgP9Iwd";
 
 export const GITHUB_REPO = "mathijsfra/golf-tracker";

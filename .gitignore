@@ -22,3 +22,7 @@ __pycache__/
 # Claude Code lokale tooling/instellingen
 .claude/
 supabase/.temp/
+
+# Lokale dev / fixture data (persoonlijke golfdata, niet committen)
+dev/fixtures/
+node_modules/
