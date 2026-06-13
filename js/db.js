@@ -146,6 +146,21 @@ export async function saveRoundInsights(id, insights) {
   } catch { /* fire-and-forget */ }
 }
 
+export async function patchRoundStats(id, data) {
+  if (mode === "supabase") {
+    await pgrest(`${TABLE}?id=eq.${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+      headers: { "Prefer": "return=minimal" },
+    });
+    return;
+  }
+  const rows = readLocal();
+  const idx = rows.findIndex((r) => r.id === id);
+  if (idx !== -1) Object.assign(rows[idx], data);
+  writeLocal(rows);
+}
+
 export async function addRound(round) {
   const row = pick(round);
   if (mode === "supabase") {

@@ -288,6 +288,38 @@ html, body {
 }
 .bag-group-grid { margin-bottom: 4px; }
 
+/* ---------- Quick edit (GIR/FW/Putts/Pen per ronde) ---------- */
+.quick-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.qe-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.qe-input {
+  width: 42px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  text-align: center;
+  background: var(--bg);
+  color: var(--ink);
+  -moz-appearance: textfield;
+}
+.qe-input::-webkit-inner-spin-button,
+.qe-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.qe-sep { color: var(--muted); font-size: 0.82rem; }
+
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }
 .exs-item {

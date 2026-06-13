@@ -6,8 +6,8 @@ import {
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
-  saveRoundInsights,
-} from "./db.js?v=23";
+  saveRoundInsights, patchRoundStats,
+} from "./db.js?v=24";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -352,7 +352,8 @@ function roundCard(r, withActions) {
   const hasCr = ct && (ct.course_rating != null || ct.slope_rating != null);
   const insights = computeInsights(r, rounds);
   const chips = insightChips(insights);
-  const hasContent = hasCr || garmin || hd.length || shots.length || r.notes || chips;
+  const hasContent = hasCr || garmin || hd.length || shots.length || r.notes || chips || withActions;
+  const qv = (v) => (v == null ? "" : v);
   return `
   <div class="round-card" data-id="${r.id}">
     <div class="round-head">
@@ -384,10 +385,24 @@ function roundCard(r, withActions) {
       ${shots.length ? `<div class="shot-thumbs">${shots.map((u) => `<a class="shot-link" data-shot="${esc(u)}" target="_blank" rel="noopener"><img alt="screenshot" loading="lazy"></a>`).join("")}</div>` : ""}
       ${r.notes ? `<div class="round-notes">${esc(r.notes)}</div>` : ""}
       ${!hasContent ? `<div class="empty-garmin">Geen extra details voor deze ronde.</div>` : ""}
-      ${withActions ? `<div class="detail-actions">
-        ${(!r.non_qualifying && !r.golfnl_scorecard_id) ? `<button class="btn btn-ghost btn-sm" data-edit="${r.id}">Bewerken</button>` : ""}
-        <button class="btn btn-danger btn-sm" data-del="${r.id}" ${r.non_qualifying ? 'data-nq="true"' : ""}>Verwijderen</button>
-      </div>` : ""}
+      ${withActions ? `
+        <div class="quick-edit">
+          <label class="qe-label">GIR</label>
+          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="gir" value="${qv(r.gir)}" placeholder="—">
+          <label class="qe-label">FW</label>
+          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="fairways_hit" value="${qv(r.fairways_hit)}" placeholder="—">
+          <span class="qe-sep">/</span>
+          <input type="number" inputmode="numeric" min="0" max="18" class="qe-input" data-qe="fairways_total" value="${qv(r.fairways_total)}" placeholder="—">
+          <label class="qe-label">Putts</label>
+          <input type="number" inputmode="numeric" min="0" max="72" class="qe-input" data-qe="putts" value="${qv(r.putts)}" placeholder="—">
+          <label class="qe-label">Pen</label>
+          <input type="number" inputmode="numeric" min="0" max="99" class="qe-input" data-qe="penalties" value="${qv(r.penalties)}" placeholder="—">
+          <button class="btn btn-primary btn-sm" data-quicksave="${r.id}">Opslaan</button>
+        </div>
+        <div class="detail-actions">
+          ${(!r.non_qualifying && !r.golfnl_scorecard_id) ? `<button class="btn btn-ghost btn-sm" data-edit="${r.id}">Bewerken</button>` : ""}
+          <button class="btn btn-danger btn-sm" data-del="${r.id}" ${r.non_qualifying ? 'data-nq="true"' : ""}>Verwijderen</button>
+        </div>` : ""}
     </div>
   </div>`;
 }
@@ -480,6 +495,38 @@ function bindRoundCards(scope) {
         if (b.dataset.nq) await softDeleteRound(b.dataset.del);
         else await deleteRound(b.dataset.del);
         await refresh();
+      }
+    }));
+  scope.querySelectorAll("[data-quicksave]").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = b.dataset.quicksave;
+      const card = b.closest(".round-card");
+      const readQe = (f) => {
+        const el = card.querySelector(`[data-qe="${f}"]`);
+        if (!el) return null;
+        const v = el.value.trim();
+        return v === "" ? null : Number(v);
+      };
+      const patch = {
+        gir:            readQe("gir"),
+        fairways_hit:   readQe("fairways_hit"),
+        fairways_total: readQe("fairways_total"),
+        putts:          readQe("putts"),
+        penalties:      readQe("penalties"),
+      };
+      const orig = b.textContent;
+      b.textContent = "…";
+      b.disabled = true;
+      try {
+        await patchRoundStats(id, patch);
+        const idx = rounds.findIndex((r) => r.id === id);
+        if (idx !== -1) Object.assign(rounds[idx], patch);
+        b.textContent = "Opgeslagen ✓";
+        setTimeout(() => { b.textContent = orig; b.disabled = false; }, 1500);
+      } catch {
+        b.textContent = "Fout!";
+        b.disabled = false;
       }
     }));
   hydrateShots(scope);
