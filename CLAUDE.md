@@ -17,9 +17,10 @@ Benchmarks en adviezen zijn ALTIJD afgestemd op het huidige handicapniveau van d
 Vergelijk nooit met scratch-standaarden tenzij de speler scratch is.
 Gebruik de 10-niveaus uit het [[handicap-levels-framework]].
 
-### K2 — Prioriteer het grootste zwaktepunt
-Geef maximaal **2 adviezen per sessie**, gebaseerd op de statistiek die het meest afwijkt van het niveau-doel.
+### K2 — Prioriteer op impact
+Sorteer adviezen op afwijking van het niveau-doel. Begin met de grootste winst.
 Volgorde van impact (hoogste naar laagste): GIR% → DB-rate → 3-putts → FW% → penalties.
+Geef zoveel adviezen als zinvol is — 2 is een richtlijn, niet een maximum. Als meerdere gebieden tegelijk significant achterlopen, benoem ze dan allemaal.
 
 ### K3 — Actionable
 Elk advies moet specifiek en uitvoerbaar zijn.
