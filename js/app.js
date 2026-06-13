@@ -7,7 +7,7 @@ import {
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats,
-} from "./db.js?v=24";
+} from "./db.js?v=25";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 

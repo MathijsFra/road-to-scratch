@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js?v=8";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js?v=9";
 
 // De 10 bekende startrondes (datum als ISO yyyy-mm-dd).
 export const SEED_ROUNDS = [
