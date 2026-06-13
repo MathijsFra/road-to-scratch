@@ -264,6 +264,8 @@ html, body {
 }
 .round-cr-item { font-size: 0.88rem; color: var(--ink); font-weight: 600; }
 .cr-label { font-size: 0.68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 1px; }
+.loop-row { margin: 6px 0; display: flex; flex-direction: column; }
+.loop-select { margin-top: 4px; font-size: 0.88rem; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); max-width: 260px; }
 
 /* ---------- Bag view ---------- */
 .bag-header { padding: 0; }

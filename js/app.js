@@ -6,8 +6,8 @@ import {
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
-  saveRoundInsights, patchRoundStats,
-} from "./db.js?v=30";
+  saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop,
+} from "./db.js?v=31";
 import { computeStats, computeWeakspots } from "./stats.js?v=14";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
@@ -371,7 +371,7 @@ function roundCard(r, withActions) {
   const hasCr = ct && (ct.course_rating != null || ct.slope_rating != null);
   const insights = computeInsights(r, rounds);
   const chips = insightChips(insights);
-  const hasContent = hasCr || garmin || hd.length || shots.length || r.notes || chips || withActions;
+  const hasContent = hasCr || garmin || hd.length || shots.length || r.notes || chips || withActions || r.course;
   return `
   <div class="round-card" data-id="${r.id}">
     <div class="round-head">
@@ -392,6 +392,19 @@ function roundCard(r, withActions) {
         <span class="round-cr-item"><span class="cr-label">CR</span> ${ct.course_rating != null ? Number(ct.course_rating).toFixed(1) : "—"}</span>
         <span class="round-cr-item"><span class="cr-label">Slope</span> ${ct.slope_rating ?? "—"}</span>
         ${ct.par != null ? `<span class="round-cr-item"><span class="cr-label">Par</span> ${ct.par}</span>` : ""}
+      </div>` : ""}
+      ${r.course ? `<div class="loop-row">
+        <span class="cr-label">Lus</span>
+        <select class="loop-select"
+          data-round-id="${r.id}"
+          data-club="${esc(r.course)}"
+          data-holes="${r.holes || 18}"
+          data-tee="${esc(r.tee || '')}"
+          data-current="${r.course_tee_id || ''}">
+          ${ct?.courses?.loop_name
+            ? `<option value="${r.course_tee_id}">${esc(ct.courses.loop_name)}</option>`
+            : `<option value="${r.course_tee_id || ''}">Kies lus…</option>`}
+        </select>
       </div>` : ""}
       ${garmin ? `<div class="garmin-grid">
         ${gcell(r.putts, "Putts")}
@@ -518,9 +531,64 @@ function hasGarmin(r) {
   return hd.some((h) => h.putts != null || h.penalties != null || h.fairway != null || h.gir != null);
 }
 
+async function loadLoopSelect(sel) {
+  sel.dataset.loaded = "1";
+  const clubName = sel.dataset.club;
+  const teeColor = sel.dataset.tee;
+  const holes    = parseInt(sel.dataset.holes, 10) || 18;
+  const currentId = sel.dataset.current || "";
+  const roundId  = sel.dataset.roundId;
+
+  if (!clubName || !teeColor) return;
+
+  try {
+    const loops = await getLoopsForRound(clubName, teeColor, holes);
+    if (!loops.length) return; // Keep whatever is shown
+
+    // Detect if the same loop_name appears in multiple genders
+    const countByLoop = {};
+    for (const t of loops) countByLoop[t.loop_name] = (countByLoop[t.loop_name] || 0) + 1;
+    const showGender = (ln) => countByLoop[ln] > 1;
+    const genderLabel = (t) => showGender(t.loop_name) ? ` (${t.tee_gender === "male" ? "H" : "D"})` : "";
+
+    const opts = loops.map((t) =>
+      `<option value="${t.id}"${t.id === currentId ? " selected" : ""}>${esc(t.loop_name)}${genderLabel(t)}</option>`
+    ).join("");
+
+    // Prepend a placeholder if nothing matches the current tee
+    const hasMatch = loops.some((t) => t.id === currentId);
+    sel.innerHTML = (hasMatch ? "" : `<option value="${currentId}">${sel.options[0]?.text || "—"}</option>`) + opts;
+
+    sel.addEventListener("change", async () => {
+      const newId = sel.value;
+      if (!newId || newId === sel.dataset.current) return;
+      try {
+        await updateRoundLoop(roundId, newId);
+        sel.dataset.current = newId;
+        const r = rounds.find((x) => x.id === roundId);
+        if (r) r.course_tee_id = newId;
+        await refresh();
+      } catch {
+        alert("Opslaan mislukt.");
+        sel.value = sel.dataset.current;
+      }
+    });
+  } catch {
+    // Silently leave the placeholder as-is
+  }
+}
+
 function bindRoundCards(scope) {
   scope.querySelectorAll(".round-head").forEach((head) => {
-    head.addEventListener("click", () => head.closest(".round-card").classList.toggle("open"));
+    head.addEventListener("click", () => {
+      const card = head.closest(".round-card");
+      const wasOpen = card.classList.contains("open");
+      card.classList.toggle("open");
+      if (!wasOpen) {
+        const sel = card.querySelector(".loop-select:not([data-loaded])");
+        if (sel) loadLoopSelect(sel);
+      }
+    });
   });
   scope.querySelectorAll("[data-edit]").forEach((b) =>
     b.addEventListener("click", (e) => { e.stopPropagation(); startEdit(b.dataset.edit); }));

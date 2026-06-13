@@ -129,10 +129,42 @@ async function accessToken() {
 export async function getRounds() {
   if (mode === "supabase") {
     return await pgrest(
-      `${TABLE}?select=*,course_tees(course_rating,slope_rating,par)&deleted_at=is.null&order=date`,
+      `${TABLE}?select=*,course_tees(course_rating,slope_rating,par,courses(loop_name,clubs(name)))&deleted_at=is.null&order=date`,
     );
   }
   return readLocal().slice().sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Haal beschikbare lussen op voor een ronde (club + tee-kleur + holes).
+// Geeft [] terug bij geen treffer of in lokale modus.
+export async function getLoopsForRound(clubName, teeColor, holes) {
+  if (mode !== "supabase") return [];
+  const enc = encodeURIComponent(clubName);
+  const clubRows = await pgrest(`clubs?select=id&name=eq.${enc}&country=eq.NL`);
+  if (!clubRows?.length) return [];
+  const clubId = clubRows[0].id;
+
+  const courseRows = await pgrest(
+    `courses?select=id,loop_name&club_id=eq.${clubId}&loop_name=gt.`,
+  );
+  if (!courseRows?.length) return [];
+
+  const ids = courseRows.map((c) => c.id).join(",");
+  const tees = await pgrest(
+    `course_tees?select=id,tee_name,tee_gender,course_id&course_id=in.(${ids})&holes=eq.${holes}&tee_name=eq.${encodeURIComponent(teeColor)}`,
+  );
+  const loopMap = Object.fromEntries(courseRows.map((c) => [c.id, c.loop_name]));
+  return (tees || []).map((t) => ({ ...t, loop_name: loopMap[t.course_id] }));
+}
+
+// Sla de luskeuze op voor een ronde (course_tee_id bijwerken).
+export async function updateRoundLoop(roundId, courseTeeId) {
+  if (mode !== "supabase") return;
+  await pgrest(`${TABLE}?id=eq.${roundId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ course_tee_id: courseTeeId }),
+    headers: { "Prefer": "return=minimal" },
+  });
 }
 
 export async function saveRoundInsights(id, insights) {
