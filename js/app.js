@@ -7,9 +7,9 @@ import {
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats,
-} from "./db.js?v=29";
-import { computeStats } from "./stats.js?v=12";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
+} from "./db.js?v=30";
+import { computeStats, computeWeakspots } from "./stats.js?v=13";
+import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -93,6 +93,7 @@ function renderDashboard() {
   if (p.doubleBogeyRate != null) pc.push(card("Double bogey", `${p.doubleBogeyRate}%`, "van de holes"));
   $("#playGrid").innerHTML = pc.length ? pc.join("")
     : emptyNote("Nog geen detaildata. Upload een scorecard-screenshot of vul GIR/fairways in.");
+  renderWeakspots(computeWeakspots(stats));
 
   // Par scoring
   const pa = stats.par;
@@ -142,6 +143,24 @@ function card(label, value, meta) {
   </div>`;
 }
 function emptyNote(t) { return `<p class="empty-note">${esc(t)}</p>`; }
+
+function renderWeakspots(weakspots) {
+  const el = $("#weakGrid");
+  if (!el) return;
+  const shown = weakspots.slice(0, 3);
+  if (!shown.length) {
+    el.innerHTML = emptyNote("Nog te weinig spel-data voor een analyse. Vul GIR, fairways en putts in via de scorekaarten.");
+    return;
+  }
+  el.innerHTML = `<div class="weak-list">${shown.map((w) => {
+    const level = w.score > 15 ? "high" : w.score > 5 ? "mid" : "low";
+    return `<div class="weak-card ${level}">
+      <div class="weak-area">${esc(w.area)}</div>
+      <div class="weak-val">${esc(w.value)}</div>
+      <div class="weak-bench">${esc(w.bench)}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
 
 // ---------- club bag ----------
 const CLUB_GROUPS = [

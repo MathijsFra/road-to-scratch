@@ -227,6 +227,27 @@ function computeGarmin(rounds) {
   };
 }
 
+// Zwaktepunt-analyse: welke onderdelen kosten de meeste slagen?
+// Vergelijkt actuele stats met amateurs-doelwaarden; geeft items gesorteerd op slechtste eerst.
+export function computeWeakspots(stats) {
+  const items = [];
+  const p = stats.play;
+
+  if (p.girPct != null)
+    items.push({ area: "GIR", value: `${p.girPct}%`, bench: "doel: 25%+", score: Math.max(0, 25 - p.girPct) });
+  if (p.fairwayPct != null)
+    items.push({ area: "Fairways", value: `${p.fairwayPct}%`, bench: "doel: 50%+", score: Math.max(0, 50 - p.fairwayPct) });
+  if (p.threePutts != null)
+    items.push({ area: "3-putts", value: `${p.threePutts.toFixed(1)}/18h`, bench: "doel: <1.5", score: Math.max(0, (p.threePutts - 1.5) * 20) });
+  if (p.penalties != null)
+    items.push({ area: "Penalties", value: `${p.penalties.toFixed(1)}/18h`, bench: "doel: <1.5", score: Math.max(0, (p.penalties - 1.5) * 20) });
+  if (p.doubleBogeyRate != null)
+    items.push({ area: "Double bogeys", value: `${p.doubleBogeyRate}%`, bench: "doel: <25%", score: Math.max(0, p.doubleBogeyRate - 25) });
+
+  items.sort((a, b) => b.score - a.score);
+  return items;
+}
+
 // Voortschrijdend gemiddelde van het dagresultaat (SD) over een venster van `window` rondes.
 export function rollingTrend(rounds, window = 10) {
   const points = [];

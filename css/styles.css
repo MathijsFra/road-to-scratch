@@ -307,6 +307,30 @@ html, body {
 .he-num::-webkit-outer-spin-button { -webkit-appearance: none; }
 .extra-strokes { font-size: 0.7em; color: var(--green-600); font-weight: 600; }
 
+/* ---------- Zwaktepunten ---------- */
+.weak-list { display: flex; flex-direction: column; gap: 8px; }
+.weak-card {
+  background: var(--card);
+  border-left: 4px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0 12px;
+  align-items: center;
+}
+.weak-card.high { border-left-color: var(--danger); }
+.weak-card.mid  { border-left-color: var(--gold); }
+.weak-card.low  { border-left-color: var(--green-600); }
+.weak-area { font-weight: 700; font-size: 0.9rem; grid-column: 1; grid-row: 1; }
+.weak-bench { font-size: 0.75rem; color: var(--muted); grid-column: 1; grid-row: 2; }
+.weak-val { font-size: 1.3rem; font-weight: 800; grid-column: 2; grid-row: 1 / 3; white-space: nowrap; }
+.weak-card.high .weak-val { color: var(--danger); }
+.weak-card.mid  .weak-val { color: var(--gold); }
+.weak-card.low  .weak-val { color: var(--green-600); }
+
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }
 .exs-item {

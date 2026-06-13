@@ -4,6 +4,25 @@ let hcpChart = null;
 let stbChart = null;
 let trendChart = null;
 
+function linearRegressionLine(values) {
+  const pts = values.map((y, i) => ({ x: i, y })).filter((p) => p.y !== null);
+  if (pts.length < 3) return values.map(() => null);
+  const n = pts.length;
+  const sumX = pts.reduce((a, p) => a + p.x, 0);
+  const sumY = pts.reduce((a, p) => a + p.y, 0);
+  const sumXY = pts.reduce((a, p) => a + p.x * p.y, 0);
+  const sumXX = pts.reduce((a, p) => a + p.x * p.x, 0);
+  const denom = n * sumXX - sumX * sumX;
+  if (!denom) return values.map(() => null);
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  const first = pts[0].x;
+  const last = pts[pts.length - 1].x;
+  return values.map((_, i) =>
+    i >= first && i <= last ? Math.round((slope * i + intercept) * 10) / 10 : null,
+  );
+}
+
 const GREEN = "#16a34a";
 const GREEN_DARK = "#14532d";
 const GOLD = "#d97706";
@@ -37,6 +56,7 @@ export function renderHcpChart(rounds) {
   const labels = rounds.map((r) => fmtLabel(r.date));
   const hcp = rounds.map((r) => (r.hcp != null ? Number(r.hcp) : null));
   const sd = rounds.map((r) => (r.sd != null ? Number(r.sd) : null));
+  const trendLine = linearRegressionLine(hcp);
 
   if (hcpChart) hcpChart.destroy();
   hcpChart = new Chart(el, {
@@ -55,6 +75,17 @@ export function renderHcpChart(rounds) {
           pointRadius: 3,
           pointBackgroundColor: GREEN_DARK,
           spanGaps: true,
+        },
+        {
+          label: "Trendlijn",
+          data: trendLine,
+          borderColor: "rgba(22,163,74,0.55)",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+          spanGaps: false,
         },
         {
           label: "Dagresultaat (SD)",
