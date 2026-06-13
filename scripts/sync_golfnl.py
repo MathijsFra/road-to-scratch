@@ -642,10 +642,23 @@ def sync_one_user(username: str, password: str, user_id: str) -> int:
         # non_qualifying altijd meenemen (boolean, ook False is een waarde)
         if rd.get("non_qualifying") is not None:
             fields["non_qualifying"] = rd["non_qualifying"]
-        # Per-hole data (alleen als gevuld)
+        # Per-hole data mergen: golf.nl levert par/score/stb/extra_strokes,
+        # maar overschrijft NIET handmatig ingevoerde gir/fairway/putts/penalties.
         if rd.get("holes_data"):
+            existing_hd = sb_round.get("holes_data") or []
+            existing_by_hole = {h["hole"]: h for h in existing_hd if isinstance(h, dict)}
+            merged = []
+            for h in rd["holes_data"]:
+                ex = existing_by_hole.get(h["hole"], {})
+                merged.append({
+                    **h,
+                    "gir":       ex.get("gir"),
+                    "fairway":   ex.get("fairway"),
+                    "putts":     ex.get("putts"),
+                    "penalties": ex.get("penalties"),
+                })
             fields["holes"] = rd["holes"]
-            fields["holes_data"] = rd["holes_data"]
+            fields["holes_data"] = merged
         if rd.get("double_bogeys") is not None:
             fields["double_bogeys"] = rd["double_bogeys"]
         # Sla scorecard-ID op als die er nog niet was (migratie van bestaande rondes)

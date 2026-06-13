@@ -305,6 +305,7 @@ html, body {
 .he-num { width: 40px; -moz-appearance: textfield; }
 .he-num::-webkit-inner-spin-button,
 .he-num::-webkit-outer-spin-button { -webkit-appearance: none; }
+.extra-strokes { font-size: 0.7em; color: var(--green-600); font-weight: 600; }
 
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }

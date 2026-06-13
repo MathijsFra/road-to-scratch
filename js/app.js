@@ -7,7 +7,7 @@ import {
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats,
-} from "./db.js?v=28";
+} from "./db.js?v=29";
 import { computeStats } from "./stats.js?v=12";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=11";
 
@@ -395,10 +395,11 @@ function roundCard(r, withActions) {
 
 function holesTable(hd) {
   const cell = (v) => (v === null || v === undefined || v === "" ? "—" : v);
+  const parCell = (h) => h.par != null ? (h.extra_strokes ? `${h.par}<span class="extra-strokes">+${h.extra_strokes}</span>` : h.par) : "—";
   const fwSym = { hit: "✓", miss: "✗", left: "←", right: "→" };
   const rows = hd.map((h) => `<tr>
     <td>${cell(h.hole)}</td>
-    <td>${cell(h.par)}</td>
+    <td>${parCell(h)}</td>
     <td class="${num(h.score) != null && num(h.par) != null && num(h.score) >= num(h.par) + 2 ? "db" : ""}">${cell(h.score)}</td>
     <td>${h.gir === true ? "✓" : h.gir === false ? "✗" : "—"}</td>
     <td>${h.fairway ? (fwSym[h.fairway] || h.fairway) : "—"}</td>
@@ -430,7 +431,8 @@ function holesEditGrid(r) {
   const rows = Array.from({ length: n }, (_, i) => {
     const hole = i + 1;
     const h = byHole[hole] || {};
-    return `<tr><td class="hcol">${hole}</td><td>${h.par ?? "—"}</td><td>${h.score ?? "—"}</td><td>${girSel(hole, h.gir)}</td><td>${fwSel(hole, h.fairway)}</td><td>${numIn("putts", hole, h.putts, 9)}</td><td>${numIn("penalties", hole, h.penalties, 9)}</td></tr>`;
+    const parStr = h.par != null ? (h.extra_strokes ? `${h.par}<span class="extra-strokes">+${h.extra_strokes}</span>` : h.par) : "—";
+    return `<tr><td class="hcol">${hole}</td><td>${parStr}</td><td>${h.score ?? "—"}</td><td>${girSel(hole, h.gir)}</td><td>${fwSel(hole, h.fairway)}</td><td>${numIn("putts", hole, h.putts, 9)}</td><td>${numIn("penalties", hole, h.penalties, 9)}</td></tr>`;
   }).join("");
   return `<div class="holes-edit-wrap">
     <table class="holes-table">
