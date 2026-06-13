@@ -55,13 +55,17 @@ html, body {
   justify-content: space-between;
   padding: 10px 16px;
 }
-.header-logo {
-  height: 40px;
-  width: 40px;
-  object-fit: contain;
-  border-radius: 10px;
-  display: block;
+.app-title {
+  font-size: 1.05rem;
+  margin: 0;
+  font-weight: 800;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
 }
+.app-title .title-road   { color: rgba(255,255,255,0.85); font-weight: 600; }
+.app-title .title-to     { color: rgba(255,255,255,0.4);  font-size: 0.78em; font-weight: 500; }
+.app-title .title-scratch { color: var(--brand-lime); font-style: italic; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .logout-btn {
   font-size: 0.72rem;
@@ -169,12 +173,18 @@ html, body {
   opacity: 0.9;
 }
 .hero-card::after {
-  content: "⛳";
+  content: "";
   position: absolute;
-  right: 14px;
-  bottom: -10px;
-  font-size: 5rem;
-  opacity: 0.07;
+  right: -8px;
+  bottom: -8px;
+  width: 120px;
+  height: 120px;
+  background-image: url('../img/logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  opacity: 0.1;
+  pointer-events: none;
 }
 .hero-label { font-size: 0.75rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 .hero-value { font-size: 3.4rem; font-weight: 800; line-height: 1; margin: 6px 0 4px; letter-spacing: -0.03em; }
