@@ -480,6 +480,7 @@ textarea { resize: vertical; }
 .btn-primary { background: var(--green-600); color: #0D0D0D; font-weight: 800; }
 .btn-primary:active { background: var(--green-700); }
 .btn-ghost { background: var(--bg); color: var(--muted); border: 1.5px solid var(--line); }
+.btn-full { width: 100%; }
 .btn-danger { background: #fef2f2; color: var(--danger); border: 1.5px solid #fecaca; flex: 1; }
 .btn-sm { padding: 9px 14px; font-size: 0.85rem; }
 .form-msg { text-align: center; font-size: 0.88rem; margin: 0; min-height: 1.2em; }
@@ -505,27 +506,32 @@ textarea { resize: vertical; }
   bottom: 0; left: 0; right: 0;
   z-index: 30;
   display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
   background: rgba(18, 18, 18, 0.97);
   backdrop-filter: saturate(120%) blur(16px);
   -webkit-backdrop-filter: saturate(120%) blur(16px);
   border-top: 1px solid rgba(255,255,255,0.07);
   padding-bottom: var(--safe-bottom);
 }
+.tabbar::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: 58px;
   border: none;
   background: none;
   color: rgba(255,255,255,0.38);
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   font-weight: 600;
   font-family: inherit;
-  padding: 9px 0 7px;
+  padding: 9px 4px 7px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
   cursor: pointer;
   transition: color 0.15s;
+  white-space: nowrap;
 }
 .tab .ico { font-size: 1.25rem; line-height: 1; }
 .tab.active { color: var(--brand-lime); }
@@ -804,3 +810,141 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 /* Insight chips */
 :root[data-theme="dark"] .insight-chip.positive { background: rgba(77,197,42,0.15); color: var(--green-800); }
 :root[data-theme="dark"] .insight-chip.negative { background: rgba(251,191,36,0.12); color: #fcd34d; }
+
+/* ---------- Coach view ---------- */
+.coach-intro-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.coach-intro-body { display: flex; flex-direction: column; gap: 6px; }
+.coach-intro-text { font-size: 0.93rem; color: var(--ink); line-height: 1.5; margin: 0; }
+.coach-hint { font-size: 0.85rem; color: var(--danger); margin: 0; }
+
+.coach-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 20px;
+}
+.coach-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand-lime);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.coach-loading-text { font-size: 0.9rem; color: var(--muted); margin: 0; }
+
+.coach-summary-card {
+  background: linear-gradient(135deg, #1C2E1F 0%, #111 100%);
+  border: 1px solid rgba(77,197,42,0.25);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.coach-summary-text { margin: 0; font-size: 0.93rem; color: rgba(255,255,255,0.9); line-height: 1.55; }
+
+.advies-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  border-left: 3px solid var(--line);
+}
+.advies-card:nth-child(1) { border-left-color: var(--brand-gold); }
+.advies-card:nth-child(2) { border-left-color: var(--brand-lime); }
+.advies-card:nth-child(3) { border-left-color: var(--brand-lime); }
+
+.advies-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.advies-prio {
+  width: 22px; height: 22px;
+  background: var(--brand-gold);
+  color: #0D0D0D;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.advies-card:nth-child(n+2) .advies-prio { background: rgba(255,255,255,0.12); color: var(--ink); }
+.advies-gebied { font-size: 0.88rem; font-weight: 700; color: var(--ink); flex: 1; }
+
+.trend-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.trend-up    { background: rgba(77,197,42,0.15);  color: var(--green-800); }
+.trend-down  { background: rgba(239,68,68,0.12);  color: #ef4444; }
+.trend-stable{ background: rgba(255,255,255,0.08); color: var(--muted); }
+
+.advies-vals {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+.advies-val { font-weight: 700; color: var(--ink); }
+.advies-val.doel { color: var(--green-800); }
+.advies-val-sep { color: var(--muted); }
+.advies-val-label { font-size: 0.72rem; color: var(--muted); }
+
+.advies-text { margin: 0; font-size: 0.88rem; color: var(--ink); line-height: 1.55; }
+
+.coach-goal-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  border-left: 3px solid var(--brand-gold);
+}
+.coach-goal-header { font-size: 0.82rem; font-weight: 700; color: var(--brand-gold); margin-bottom: 6px; }
+.coach-goal-text { margin: 0; font-size: 0.88rem; color: var(--ink); line-height: 1.55; }
+
+.coach-refresh-btn { margin-top: 4px; margin-bottom: 16px; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 0.93rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-secondary:active { background: var(--line); }
+
+/* Dark mode coach overrides */
+:root[data-theme="dark"] .coach-summary-card {
+  background: linear-gradient(135deg, #1C2E1F 0%, #151515 100%);
+  border-color: rgba(77,197,42,0.3);
+}
+:root[data-theme="dark"] .advies-card {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-left-width: 3px;
+}
+:root[data-theme="dark"] .trend-stable { background: rgba(255,255,255,0.06); }
+:root[data-theme="dark"] .coach-goal-card { border: 1px solid rgba(255,255,255,0.07); border-left: 3px solid var(--brand-gold); }
+:root[data-theme="dark"] .btn-secondary { border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); }

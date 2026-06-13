@@ -549,6 +549,26 @@ export async function submitGarminOtp(otp) {
   }
 }
 
+// Roept de AI-coach Edge Function aan met de statistieken van de gebruiker.
+export async function callCoachAdvice(coachData) {
+  if (mode !== "supabase") {
+    throw new Error("AI-coach vereist een cloud-verbinding (Supabase).");
+  }
+  const token = await accessToken();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/coach-advice`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "Authorization": `Bearer ${token || SUPABASE_ANON_KEY}`,
+      "apikey": SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ coachData }),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error || `Coach mislukt (${res.status})`);
+  return out;
+}
+
 // Roept de Edge Function aan die Claude de screenshots laat uitlezen.
 export async function parseScreenshots(processedImages) {
   if (mode !== "supabase") {

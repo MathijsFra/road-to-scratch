@@ -7,7 +7,8 @@ import {
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop, saveGoal,
-} from "./db.js?v=32";
+  callCoachAdvice,
+} from "./db.js?v=33";
 import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=16";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
@@ -1098,6 +1099,82 @@ function startGarminPoll() {
   }, 3000);
 }
 
+// ---------- coach ----------
+let _coachResult = null;
+
+async function runCoachAnalysis() {
+  const intro   = $("#coachIntro");
+  const loading = $("#coachLoading");
+  const result  = $("#coachResult");
+  const hint    = $("#coachModeHint");
+
+  if (getMode() !== "supabase") {
+    hint.hidden = false;
+    return;
+  }
+
+  intro.hidden   = true;
+  result.hidden  = true;
+  loading.hidden = false;
+
+  try {
+    const coachData = computeCoachData(rounds, userGoal);
+    const advice    = await callCoachAdvice(coachData);
+    _coachResult    = advice;
+    renderCoachResult(advice);
+    loading.hidden = true;
+    result.hidden  = false;
+  } catch (err) {
+    loading.hidden = true;
+    intro.hidden   = false;
+    hint.textContent = "Analyse mislukt: " + (err.message || err);
+    hint.hidden = false;
+  }
+}
+
+function renderCoachResult(advice) {
+  const summaryCard = $("#coachSummaryCard");
+  const adviezen    = $("#coachAdviezen");
+  const goalCard    = $("#coachGoalCard");
+
+  summaryCard.innerHTML = `<p class="coach-summary-text">${esc(advice.samenvatting ?? "")}</p>`;
+
+  if (advice.minimalData) {
+    adviezen.innerHTML = "";
+    goalCard.hidden = true;
+    return;
+  }
+
+  const trendLabel = { verbeterend: "↑ verbeterend", stabiel: "→ stabiel", verslechterend: "↓ verslechterend" };
+  const trendClass = { verbeterend: "trend-up", stabiel: "trend-stable", verslechterend: "trend-down" };
+
+  adviezen.innerHTML = (advice.adviezen ?? []).map((a) => `
+    <div class="advies-card">
+      <div class="advies-header">
+        <span class="advies-prio">${a.prioriteit}</span>
+        <span class="advies-gebied">${esc(a.gebied)}</span>
+        <span class="trend-badge ${trendClass[a.trend] ?? "trend-stable"}">${trendLabel[a.trend] ?? esc(a.trend)}</span>
+      </div>
+      <div class="advies-vals">
+        <span class="advies-val-label">Jij</span><span class="advies-val">${esc(a.jouw_waarde)}</span>
+        <span class="advies-val-sep">→</span>
+        <span class="advies-val-label">Doel</span><span class="advies-val doel">${esc(a.doel_waarde)}</span>
+      </div>
+      <p class="advies-text">${esc(a.advies)}</p>
+    </div>
+  `).join("");
+
+  if (advice.doelVoortgang) {
+    goalCard.innerHTML = `
+      <div class="coach-goal-header">🎯 Voortgang naar doel</div>
+      <p class="coach-goal-text">${esc(advice.doelVoortgang)}</p>
+    `;
+    goalCard.hidden = false;
+  } else {
+    goalCard.hidden = true;
+  }
+}
+
 // ---------- init ----------
 async function main() {
   const mode = await initDb();
@@ -1110,6 +1187,12 @@ async function main() {
   $("#cancelBtn").addEventListener("click", () => { resetForm(); switchView("rounds"); });
   $("#filterHoles").addEventListener("change", renderRoundList);
   $("#bagGoSettings")?.addEventListener("click", () => switchView("settings"));
+  $("#coachAnalyseBtn")?.addEventListener("click", runCoachAnalysis);
+  $("#coachRefreshBtn")?.addEventListener("click", () => {
+    $("#coachResult").hidden = true;
+    $("#coachIntro").hidden = false;
+    _coachResult = null;
+  });
   initBagToggles();
   $("#f_shots").addEventListener("change", onShotsSelected);
   $("#parseBtn").addEventListener("click", onParse);
