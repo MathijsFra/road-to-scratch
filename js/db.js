@@ -326,10 +326,24 @@ export async function loadUserSettings() {
   if (mode !== "supabase") return {};
   try {
     const rows = await pgrest(
-      "user_settings?select=golfnl_username,golfnl_sync_status,garmin_username,garmin_auth_status,toptracer_username,toptracer_auth_status,toptracer_auth_error&limit=1",
+      "user_settings?select=golfnl_username,golfnl_sync_status,garmin_username,garmin_auth_status,toptracer_username,toptracer_auth_status,toptracer_auth_error,target_hcp,target_date&limit=1",
     );
     return Array.isArray(rows) && rows.length ? rows[0] : {};
   } catch { return {}; }
+}
+
+export async function saveGoal(targetHcp, targetDate) {
+  if (mode !== "supabase") return;
+  const user = await getUser();
+  if (!user) return;
+  await pgrest(`user_settings?user_id=eq.${user.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      target_hcp: targetHcp != null ? Number(targetHcp) : null,
+      target_date: targetDate || null,
+    }),
+    headers: { "Prefer": "return=minimal" },
+  });
 }
 
 export async function getClubBag(period = "all") {

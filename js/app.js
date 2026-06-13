@@ -6,15 +6,16 @@ import {
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
-  saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop,
-} from "./db.js?v=31";
-import { computeStats, computeWeakspots } from "./stats.js?v=15";
+  saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop, saveGoal,
+} from "./db.js?v=32";
+import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=16";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
 let rounds = [];      // geannoteerde rondes (oplopend op datum)
 let stats = null;
+let userGoal = {};    // { target_hcp, target_date } uit user_settings
 let editingId = null;
 let chartsBuilt = false;
 let pendingShots = []; // [{ processed, url }] — screenshots voor de huidige form
@@ -52,6 +53,7 @@ async function refresh() {
   stats = computeStats(rounds);
   rounds = stats.rounds;
   renderDashboard();
+  renderLevelBadge();
   renderRoundList();
   persistInsights(rounds);
   if (isActive("chart")) buildCharts();
@@ -671,6 +673,38 @@ async function hydrateShots(scope) {
   }
 }
 
+// ---------- niveau-badge ----------
+function renderLevelBadge() {
+  const el = $("#levelBadge");
+  if (!el || !stats) return;
+  const current = hcpLevel(stats.currentHcp);
+  if (!current) { el.hidden = true; return; }
+
+  const target = userGoal.target_hcp != null ? hcpLevel(Number(userGoal.target_hcp)) : null;
+  const sameLevel = target && target.level === current.level;
+
+  let html = `<span class="level-current">Niveau ${current.level} — ${current.name}</span>`;
+  if (target && !sameLevel) {
+    const arrow = target.level > current.level ? "↑" : "↓";
+    const dateStr = userGoal.target_date
+      ? ` voor ${new Date(userGoal.target_date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}`
+      : "";
+    html += `<span class="level-target">${arrow} doel: ${target.name} (HCP ${userGoal.target_hcp})${dateStr}</span>`;
+  } else if (target && sameLevel) {
+    html += `<span class="level-target">✓ Al op doelniveau</span>`;
+  }
+
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+function applyUserGoal(s) {
+  userGoal = { target_hcp: s.target_hcp ?? null, target_date: s.target_date ?? null };
+  if ($("#goalHcp") && s.target_hcp != null) $("#goalHcp").value = s.target_hcp;
+  if ($("#goalDate") && s.target_date) $("#goalDate").value = s.target_date;
+  renderLevelBadge();
+}
+
 // ---------- charts ----------
 function buildCharts() {
   renderHcpChart(rounds);
@@ -1241,6 +1275,27 @@ async function main() {
 
   $("#settingsLogoutBtn")?.addEventListener("click", () => signOut());
 
+  $("#saveGoalBtn")?.addEventListener("click", async () => {
+    const hcp  = $("#goalHcp")?.value.trim();
+    const date = $("#goalDate")?.value;
+    const btn  = $("#saveGoalBtn");
+    const status = $("#goalStatus");
+    btn.disabled = true;
+    try {
+      await saveGoal(hcp !== "" ? hcp : null, date || null);
+      userGoal = { target_hcp: hcp !== "" ? Number(hcp) : null, target_date: date || null };
+      renderLevelBadge();
+      status.textContent = "✓ Doel opgeslagen";
+      status.className = "sync-status ok";
+    } catch {
+      status.textContent = "Opslaan mislukt.";
+      status.className = "sync-status err";
+    } finally {
+      btn.disabled = false;
+      setTimeout(() => { status.textContent = ""; }, 3000);
+    }
+  });
+
   resetForm();
 
   if (mode !== "supabase") {       // lokale modus: geen login
@@ -1283,6 +1338,7 @@ async function main() {
         } else {
           showToptracerLinked(null);
         }
+        applyUserGoal(s);
       });
       // Herstel lopende Garmin-koppeling na pagina-refresh.
       getGarminAuthStatus().then(({ status, error }) => {
@@ -1307,6 +1363,7 @@ async function main() {
     await refresh();
     loadUserSettings().then((s) => {
       if (s.golfnl_username) $("#golfnlUsername").value = s.golfnl_username;
+      applyUserGoal(s);
     });
     getGarminAuthStatus().then(({ status, error }) => {
       if (status === "pending" || status === "otp_needed") {

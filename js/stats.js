@@ -276,6 +276,91 @@ export function computeWeakspots(stats) {
   return items;
 }
 
+// ---------------------------------------------------------------------------
+// Niveau-lookup op basis van handicap
+// ---------------------------------------------------------------------------
+const LEVELS = [
+  { level: 10, name: "Scratch",             min: -99, max: 0   },
+  { level:  9, name: "Expert",              min:   1, max: 4   },
+  { level:  8, name: "Enkeling",            min:   5, max: 8   },
+  { level:  7, name: "Gevorderd Speler",    min:   9, max: 12  },
+  { level:  6, name: "Wedstrijdspeler",     min:  13, max: 17  },
+  { level:  5, name: "Clubspeler",          min:  18, max: 22  },
+  { level:  4, name: "Gevorderd Recreant",  min:  23, max: 28  },
+  { level:  3, name: "Recreant",            min:  29, max: 36  },
+  { level:  2, name: "Leerling",            min:  37, max: 45  },
+  { level:  1, name: "Starter",             min:  46, max: 999 },
+];
+
+export function hcpLevel(hcp) {
+  if (hcp == null) return null;
+  return LEVELS.find((l) => hcp <= l.max) ?? LEVELS[LEVELS.length - 1];
+}
+
+// ---------------------------------------------------------------------------
+// Coach-data: structuur voor de AI-coach Edge Function (K6/K8/K9)
+// ---------------------------------------------------------------------------
+
+function statTrend(qualifying, extractor) {
+  const vals = qualifying.map(extractor).filter((v) => v !== null);
+  if (vals.length < 4) return { recent: avg(vals) ?? null, prev: null, trend: null };
+  const half = Math.floor(vals.length / 2);
+  const prevAvg = avg(vals.slice(0, half));
+  const recentAvg = avg(vals.slice(-half));
+  return {
+    recent: round1(recentAvg),
+    prev:   round1(prevAvg),
+    trend:  round1(recentAvg - prevAvg),  // negatief = verbetering voor putts/DB/etc.
+  };
+}
+
+export function computeCoachData(rounds, userGoal = {}) {
+  const qualifying = rounds.filter((r) => !isNonQualifying(r));
+  const n = qualifying.length;
+
+  const currentHcp = (() => {
+    for (let i = n - 1; i >= 0; i--) {
+      if (num(qualifying[i].hcp) !== null) return num(qualifying[i].hcp);
+    }
+    return null;
+  })();
+
+  const currentLevel = hcpLevel(currentHcp);
+  const targetLevel  = userGoal.target_hcp != null ? hcpLevel(num(userGoal.target_hcp)) : null;
+
+  // Per-stat trends (laatste helft vs vorige helft van kwalificerende rondes)
+  const trends = {
+    gir:        statTrend(qualifying, (r) => girCount(r) !== null ? Math.round((girCount(r) / (r.holes || 18)) * 100) : null),
+    fairway:    statTrend(qualifying, (r) => { const fw = fairwayStats(r); return fw ? Math.round((fw.hit / fw.total) * 100) : null; }),
+    threePutts: statTrend(qualifying, (r) => { const v = threePutts(r); return v !== null ? v * (r.holes === 9 ? 2 : 1) : null; }),
+    penalties:  statTrend(qualifying, (r) => { const hd = holesData(r); const vals = hd.map((h) => num(h.penalties)).filter((v) => v !== null); const tot = vals.length ? vals.reduce((a,b)=>a+b,0) : num(r.penalties); return tot !== null ? tot * (r.holes === 9 ? 2 : 1) : null; }),
+    doubleBogey:statTrend(qualifying, (r) => { const db = doubleBogeys(r); return db !== null ? Math.round((db / (r.holes || 18)) * 100) : null; }),
+    sd:         statTrend(qualifying, (r) => num(r.sd)),
+  };
+
+  // Benchmarks op huidig niveau
+  const hcp = currentHcp ?? 18;
+  const benchmarks = {
+    gir:        Math.round(_interp(hcp, _GIR_C)),
+    fairway:    Math.round(_interp(hcp, _FW_C)),
+    threePutts: Math.round(_interp(hcp, _TP_C) * 10) / 10,
+    penalties:  Math.round(_interp(hcp, _PEN_C) * 10) / 10,
+    doubleBogey:Math.round(_interp(hcp, _DB_C)),
+  };
+
+  return {
+    qualifying: n,
+    hasHoleData: qualifying.filter((r) => holesData(r).length > 0).length,
+    currentHcp,
+    currentLevel,
+    targetHcp:  userGoal.target_hcp != null ? num(userGoal.target_hcp) : null,
+    targetDate:  userGoal.target_date || null,
+    targetLevel,
+    trends,
+    benchmarks,
+  };
+}
+
 // Voortschrijdend gemiddelde van het dagresultaat (SD) over een venster van `window` rondes.
 export function rollingTrend(rounds, window = 10) {
   const points = [];

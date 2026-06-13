@@ -267,6 +267,25 @@ html, body {
 .loop-row { margin: 6px 0; display: flex; flex-direction: column; }
 .loop-select { margin-top: 4px; font-size: 0.88rem; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); max-width: 260px; }
 
+/* ---------- Niveau-badge ---------- */
+.level-badge {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--card); border-radius: 12px;
+  padding: 10px 14px; margin-bottom: 12px;
+  border-left: 3px solid var(--green-600);
+}
+.level-current { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.level-target { font-size: 0.8rem; color: var(--muted); }
+
+/* ---------- Settings inputs ---------- */
+.settings-input {
+  font-size: 0.9rem; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--ink);
+  width: 140px; text-align: right;
+}
+.settings-hint { font-size: 0.82rem; color: var(--muted); margin: 0 0 10px; }
+
 /* ---------- Bag view ---------- */
 .bag-header { padding: 0; }
 .bag-sub { font-size: 0.82rem; color: var(--muted); margin: 0 0 8px; }
