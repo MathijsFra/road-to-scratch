@@ -52,20 +52,15 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px;
+  padding: 10px 16px;
 }
-.app-title {
-  font-size: 1.05rem;
-  margin: 0;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
+.header-logo {
+  height: 40px;
+  width: 40px;
+  object-fit: contain;
+  border-radius: 10px;
+  display: block;
 }
-.app-title .title-road { color: rgba(255,255,255,0.85); font-style: normal; font-weight: 600; }
-.app-title .title-to   { color: rgba(255,255,255,0.55); font-size: 0.85em; font-weight: 500; }
-.app-title .title-scratch { color: var(--brand-lime); font-style: italic; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .logout-btn {
   font-size: 0.72rem;
@@ -102,9 +97,13 @@ html, body {
   flex-direction: column;
   gap: 4px;
 }
-.login-logo { font-size: 2.6rem; text-align: center; }
-.login-card h2 { margin: 2px 0 0; text-align: center; color: var(--ink); font-size: 1.4rem; font-weight: 700; }
-.login-card h2 em { font-style: italic; font-weight: 800; color: var(--brand-lime); }
+.login-logo-img {
+  width: 200px;
+  height: auto;
+  display: block;
+  margin: 0 auto 2px;
+  border-radius: 16px;
+}
 .login-sub { margin: 0 0 12px; text-align: center; color: var(--muted); font-size: 0.88rem; }
 .login-card label { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-top: 10px; }
 .login-card .btn-primary { margin-top: 16px; }
