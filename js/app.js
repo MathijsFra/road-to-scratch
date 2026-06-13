@@ -8,7 +8,7 @@ import {
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop,
 } from "./db.js?v=31";
-import { computeStats, computeWeakspots } from "./stats.js?v=14";
+import { computeStats, computeWeakspots } from "./stats.js?v=15";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];

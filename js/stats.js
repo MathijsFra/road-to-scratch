@@ -227,20 +227,39 @@ function computeGarmin(rounds) {
   };
 }
 
+// Research-based benchmarkcurves [[hcp, waarde], ...] — lineair geïnterpoleerd.
+// Bronnen: Shot Scope, Golf Insider UK, Break X Golf, MyGolfSpy (zie handicap-levels-framework).
+const _GIR_C  = [[0,65],[5,50],[10,37],[15,26],[20,22],[25,19],[30,12],[36,6],[54,3]];
+const _FW_C   = [[0,57],[5,51],[10,49],[15,48],[20,43],[25,43],[30,38],[36,30],[54,22]];
+const _TP_C   = [[0,1.5],[5,2.0],[10,2.5],[15,3.5],[20,4.2],[25,5.8],[30,7.0],[36,8.5],[54,12.0]];
+const _PEN_C  = [[0,0.5],[5,0.8],[10,1.5],[15,2.0],[20,2.8],[25,3.5],[30,5.0],[36,6.5],[54,10.0]];
+const _DB_C   = [[0,1.5],[5,5],[10,14],[15,26],[20,37],[25,51],[30,60],[36,67],[54,75]];
+
+function _interp(hcp, curve) {
+  if (hcp <= curve[0][0]) return curve[0][1];
+  const last = curve[curve.length - 1];
+  if (hcp >= last[0]) return last[1];
+  for (let i = 0; i < curve.length - 1; i++) {
+    if (hcp <= curve[i + 1][0]) {
+      const t = (hcp - curve[i][0]) / (curve[i + 1][0] - curve[i][0]);
+      return curve[i][1] + t * (curve[i + 1][1] - curve[i][1]);
+    }
+  }
+  return last[1];
+}
+
 // Zwaktepunt-analyse: welke onderdelen kosten de meeste slagen?
-// Doelwaarden zijn geschaald op het huidige handicap zodat een hcp-34-speler
-// andere verwachtingen krijgt dan een scratch-golfer.
+// Doelwaarden zijn gebaseerd op research-data per handicapniveau (niet-lineaire curves).
 export function computeWeakspots(stats) {
   const items = [];
   const p = stats.play;
-  const hcp = stats.currentHcp ?? 18; // standaard midden-amateur als hcp onbekend
+  const hcp = stats.currentHcp ?? 18;
 
-  // Targets schalen lineair mee met handicap (afgeleid van USGA/EGA-benchmarks).
-  const girTarget    = Math.max(5,  Math.round(60 - hcp * 1.5));   // hcp0=60%, hcp18=33%, hcp36=6%
-  const fwTarget     = Math.max(30, Math.round(70 - hcp * 1.0));   // hcp0=70%, hcp18=52%, hcp36=34%
-  const tpTarget     = Math.round((0.5 + hcp * 0.1) * 10) / 10;   // hcp0=0.5, hcp18=2.3, hcp36=4.1
-  const penTarget    = Math.round((0.5 + hcp * 0.05) * 10) / 10;  // hcp0=0.5, hcp18=1.4, hcp36=2.3
-  const dbTarget     = Math.round(3 + hcp * 1.5);                  // hcp0=3%, hcp18=30%, hcp36=57%
+  const girTarget = Math.round(_interp(hcp, _GIR_C));
+  const fwTarget  = Math.round(_interp(hcp, _FW_C));
+  const tpTarget  = Math.round(_interp(hcp, _TP_C) * 10) / 10;
+  const penTarget = Math.round(_interp(hcp, _PEN_C) * 10) / 10;
+  const dbTarget  = Math.round(_interp(hcp, _DB_C));
 
   if (p.girPct != null)
     items.push({ area: "GIR", value: `${p.girPct}%`, bench: `doel: ${girTarget}%+`, score: Math.max(0, girTarget - p.girPct) });
