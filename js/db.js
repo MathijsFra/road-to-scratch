@@ -550,7 +550,7 @@ export async function submitGarminOtp(otp) {
 }
 
 // Roept de AI-coach Edge Function aan met de statistieken van de gebruiker.
-export async function callCoachAdvice(coachData) {
+export async function callCoachAdvice(coachData, provider = "groq") {
   if (mode !== "supabase") {
     throw new Error("AI-coach vereist een cloud-verbinding (Supabase).");
   }
@@ -562,7 +562,7 @@ export async function callCoachAdvice(coachData) {
       "Authorization": `Bearer ${token || SUPABASE_ANON_KEY}`,
       "apikey": SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ coachData }),
+    body: JSON.stringify({ coachData, provider }),
   });
   const out = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(out.error || `Coach mislukt (${res.status})`);

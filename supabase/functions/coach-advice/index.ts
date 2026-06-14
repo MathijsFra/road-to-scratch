@@ -1,19 +1,19 @@
 // Supabase Edge Function: coach-advice
 // -----------------------------------------------------------
 // Analyseert golfstatistieken van een ingelogde gebruiker en
-// geeft AI-advies via Google Gemini (gratis tier).
+// geeft AI-advies via Groq (gratis tier, OpenAI-compatible).
 //
 // Deploy:
 //   supabase functions deploy coach-advice
-//   supabase secrets set GEMINI_API_KEY=...
+//   supabase secrets set GROQ_API_KEY=gsk_...
 //
-// API key aanmaken: https://aistudio.google.com → Get API key
+// API key aanmaken: https://console.groq.com → API Keys
 // -----------------------------------------------------------
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const MODEL = "gemini-2.0-flash";
+const MODEL = "llama-3.3-70b-versatile";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -58,12 +58,18 @@ Je ontvangt een JSON-object met de statistieken van een golfer. De velden zijn:
   - sd: Stableford dagresultaat (hoger = beter)
 - benchmarks: doelwaarden voor het huidige handicapniveau
   - gir, fairway, threePutts, penalties, doubleBogey
+- gaps: voorberekende afwijking per statistiek. POSITIEF = speler zit ONDER de benchmark (verbetering nodig). NEGATIEF of NUL = benchmark al gehaald. NULL = geen data beschikbaar.
+  - gir, fairway, threePutts, penalties, doubleBogey
+- nextLevelBenchmarks: doelwaarden voor het VOLGENDE handicapniveau (een niveau hoger dan huidig). Null als speler al scratch is.
+- nextLevelGaps: zelfde structuur als gaps, maar berekend ten opzichte van nextLevelBenchmarks.
 
 VERPLICHTE KADERS:
 
 K1 — Niveau-gebaseerd: Vergelijk altijd met de benchmarks voor het huidige handicapniveau. Nooit met scratch-standaarden tenzij de speler scratch is.
 
-K2 — Prioriteer op impact: Sorteer adviezen op afwijking van de benchmark. Impact-volgorde: GIR% → DB-rate → 3-putts → FW% → penalties. Geef zoveel adviezen als zinvol is.
+K2 — Prioriteer op impact: Gebruik uitsluitend het veld "gaps" om te bepalen welke statistieken advies nodig hebben. Geef ALLEEN adviezen voor statistieken met gaps[stat] > 0. Statistieken met gaps[stat] <= 0 of null worden volledig overgeslagen — noem ze nergens, ook niet als compliment of positieve opmerking. Sorteer adviezen op gaps-waarde (hoogste eerst). Impact-volgorde bij gelijke gap: GIR% → DB-rate → 3-putts → FW% → penalties.
+
+Als alle gaps <= 0 zijn (speler haalt alle benchmarks op huidig niveau): gebruik dan "nextLevelGaps" voor de adviezen. Geef adviezen voor de statistieken met de hoogste nextLevelGaps (maximaal 3). Gebruik als doel_waarde de waarde uit nextLevelBenchmarks (niet benchmarks). Vermeld in de samenvatting dat de speler boven het huidige niveau presteert en dat de adviezen gericht zijn op het bereiken van het volgende niveau. Als nextLevelGaps null is (scratch), schrijf dan dat de speler op het hoogste niveau speelt.
 
 K3 — Actionable: Elk advies moet specifiek en uitvoerbaar zijn. Goed: "Oefen dagelijks 20 putts tussen 1–3 meter." Fout: "Verbeter je putting."
 
@@ -71,7 +77,7 @@ K4 — Toon: Doelhandicap ver onder huidig en tijdlijn krap → direct en scherp
 
 K5 — Geen medisch of swing-advies. Verwijs bij blessures naar fysiotherapeut, bij techniek naar een PGA/PGF-pro.
 
-K6 — Minimale data: Als qualifying < 5, stel minimalData=true in. Schrijf een korte uitleg in samenvatting waarom er meer rondes nodig zijn. Adviezen-array leeg laten.
+K6 — Minimale data: Als qualifying < 5, stel minimalData=true in. Schrijf een korte uitleg in samenvatting. Adviezen-array leeg laten.
 
 K7 — Eerlijk: Geef aan als data beperkt is, bijv. als hasHoleData < 3 voor GIR/FW-analyse.
 
@@ -102,7 +108,7 @@ Maximaal 5 adviezen. Als minimalData=true: adviezen=[], doelVoortgang=null.`;
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY is niet ingesteld op de server." }, 500);
+  if (!GROQ_API_KEY) return json({ error: "GROQ_API_KEY is niet ingesteld op de server." }, 500);
 
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "");
@@ -121,39 +127,35 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-    const res = await fetch(url, {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "content-type": "application/json",
+      },
       body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: SYSTEM_PROMPT }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `Analyseer deze golfstatistieken en geef advies:\n${JSON.stringify(coachData, null, 2)}` }],
-          },
+        model: MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Analyseer deze golfstatistieken en geef advies:\n${JSON.stringify(coachData, null, 2)}` },
         ],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          responseMimeType: "application/json",
-        },
+        max_tokens: 1500,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
       }),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as Record<string, unknown>;
-      const msg = (err.error as Record<string, unknown>)?.message ?? `Gemini API fout ${res.status}`;
+      const msg = (err.error as Record<string, unknown>)?.message ?? `Groq API fout ${res.status}`;
       throw new Error(String(msg));
     }
 
     const data = await res.json() as {
-      candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
+      choices: Array<{ message: { content: string } }>;
     };
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const text = data.choices?.[0]?.message?.content ?? "";
 
     let advice: unknown;
     try {

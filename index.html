@@ -405,6 +405,12 @@
     <section id="view-coach" class="view">
       <h2 class="section-title">AI Coach</h2>
 
+      <div class="coach-provider-row">
+        <span class="coach-provider-label">Model:</span>
+        <label class="provider-chip"><input type="radio" name="coachProvider" value="groq" checked><span>Groq</span></label>
+        <label class="provider-chip"><input type="radio" name="coachProvider" value="gemini"><span>Gemini</span></label>
+      </div>
+
       <div id="coachIntro" class="coach-intro-card">
         <div class="coach-intro-body">
           <p class="coach-intro-text">Laat de AI-coach jouw statistieken analyseren en ontvang persoonlijk advies afgestemd op jouw niveau en doel.</p>
@@ -429,6 +435,7 @@
         <div id="coachAdviezen"></div>
         <div class="coach-goal-card" id="coachGoalCard" hidden></div>
         <button id="coachRefreshBtn" class="btn-secondary btn-full coach-refresh-btn">Opnieuw analyseren</button>
+        <p id="coachModelTag" class="coach-model-tag"></p>
       </div>
     </section>
   </main>
@@ -443,6 +450,6 @@
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instellingen</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=38"></script>
+  <script type="module" src="js/app.js?v=39"></script>
 </body>
 </html>

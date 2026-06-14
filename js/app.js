@@ -8,7 +8,7 @@ import {
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop, saveGoal,
   callCoachAdvice,
-} from "./db.js?v=33";
+} from "./db.js?v=34";
 import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=18";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
@@ -1102,10 +1102,11 @@ function startGarminPoll() {
 // ---------- coach ----------
 const COACH_CACHE_KEY = "coach_advice_v1";
 
-function saveCoachCache(advice) {
+function saveCoachCache(advice, provider) {
   try {
     localStorage.setItem(COACH_CACHE_KEY, JSON.stringify({
       advice,
+      provider: provider || "groq",
       generatedAt: Date.now(),
       roundCount: rounds.length,
     }));
@@ -1127,7 +1128,7 @@ function showCoachView() {
   const cached = loadCoachCache();
   if (!cached) return; // geen cache → intro blijft zichtbaar
 
-  renderCoachResult(cached.advice);
+  renderCoachResult(cached.advice, cached.provider);
   $("#coachIntro").hidden  = true;
   $("#coachLoading").hidden = true;
   $("#coachResult").hidden  = false;
@@ -1161,10 +1162,11 @@ async function runCoachAnalysis() {
   loading.hidden = false;
 
   try {
+    const provider  = document.querySelector('input[name="coachProvider"]:checked')?.value || "groq";
     const coachData = computeCoachData(rounds, userGoal);
-    const advice    = await callCoachAdvice(coachData);
-    saveCoachCache(advice);
-    renderCoachResult(advice);
+    const advice    = await callCoachAdvice(coachData, provider);
+    saveCoachCache(advice, provider);
+    renderCoachResult(advice, provider);
     loading.hidden = true;
     result.hidden  = false;
   } catch (err) {
@@ -1183,12 +1185,15 @@ async function runCoachAnalysis() {
   }
 }
 
-function renderCoachResult(advice) {
+function renderCoachResult(advice, provider) {
   const summaryCard = $("#coachSummaryCard");
   const adviezen    = $("#coachAdviezen");
   const goalCard    = $("#coachGoalCard");
+  const modelLabel  = { groq: "Groq · llama-3.3-70b", gemini: "Google · Gemini 2.0 Flash" };
 
   summaryCard.innerHTML = `<p class="coach-summary-text">${esc(advice.samenvatting ?? "")}</p>`;
+  const modelTag = $("#coachModelTag");
+  if (modelTag) modelTag.textContent = modelLabel[provider] || provider || "Groq · llama-3.3-70b";
 
   if (advice.minimalData) {
     adviezen.innerHTML = "";

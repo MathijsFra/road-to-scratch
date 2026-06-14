@@ -812,6 +812,13 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 :root[data-theme="dark"] .insight-chip.negative { background: rgba(251,191,36,0.12); color: #fcd34d; }
 
 /* ---------- Coach view ---------- */
+.coach-provider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.coach-provider-label { font-size: 0.8rem; color: var(--muted); }
+.provider-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+.provider-chip span { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1.5px solid var(--line); color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.provider-chip input:checked + span { background: var(--brand-green); border-color: var(--brand-green); color: #fff; }
+.coach-model-tag { font-size: 0.72rem; color: var(--muted); text-align: right; margin-top: 4px; margin-bottom: 8px; }
+
 .coach-intro-card {
   background: var(--card);
   border-radius: var(--radius);
