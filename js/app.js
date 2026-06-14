@@ -1165,6 +1165,7 @@ async function runCoachAnalysis() {
   const loading = $("#coachLoading");
   const result  = $("#coachResult");
   const hint    = $("#coachModeHint");
+  const errEl   = $("#coachError");
   const stale   = $("#coachStaleBanner");
 
   if (getMode() !== "supabase") {
@@ -1172,6 +1173,7 @@ async function runCoachAnalysis() {
     return;
   }
 
+  errEl.hidden   = true;
   intro.hidden   = true;
   result.hidden  = true;
   stale.hidden   = true;
@@ -1195,9 +1197,8 @@ async function runCoachAnalysis() {
     } else {
       intro.hidden = false;
     }
-    hint.textContent = "Analyse mislukt: " + (err.message || err);
-    hint.hidden = false;
-    setTimeout(() => { hint.textContent = ""; hint.hidden = true; }, 6000);
+    errEl.textContent = "Analyse mislukt: " + (err.message || err);
+    errEl.hidden = false;
   }
 }
 
