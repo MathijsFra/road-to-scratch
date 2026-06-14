@@ -6,9 +6,10 @@ import {
   triggerGarminAuth, getGarminAuthStatus, submitGarminOtp,
   resetGarminAuthStatus, clearGarminCredentials, clearGolfnlCredentials,
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
-  saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop, saveGoal,
+  saveRoundInsights, patchRoundStats, getLoopsForRound, getLoopsForCourseText,
+  updateRoundLoop, saveGoal,
   callCoachAdvice, getManualDistances, upsertManualDistance, deleteManualDistance,
-} from "./db.js?v=36";
+} from "./db.js?v=37";
 import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=18";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
@@ -738,40 +739,67 @@ function hasGarmin(r) {
 
 async function loadLoopSelect(sel) {
   sel.dataset.loaded = "1";
-  const clubName = sel.dataset.club;
-  const teeColor = sel.dataset.tee;
-  const holes    = parseInt(sel.dataset.holes, 10) || 18;
+  const clubName  = sel.dataset.club;
+  const teeColor  = sel.dataset.tee;
+  const holes     = parseInt(sel.dataset.holes, 10) || 18;
   const currentId = sel.dataset.current || "";
-  const roundId  = sel.dataset.roundId;
+  const roundId   = sel.dataset.roundId;
 
-  if (!clubName || !teeColor) return;
+  if (!clubName) return;
 
   try {
-    const loops = await getLoopsForRound(clubName, teeColor, holes);
-    if (!loops.length) return; // Keep whatever is shown
+    let loops;
+    let unlinked = false;
 
-    // Detect if the same loop_name appears in multiple genders
+    if (!teeColor) {
+      // Golf.nl-import: probeer lus te achterhalen via "Club ~ Lus"-formaat
+      if (!clubName.includes(" ~ ")) return;
+      loops = await getLoopsForCourseText(clubName, holes);
+      unlinked = true;
+    } else {
+      loops = await getLoopsForRound(clubName, teeColor, holes);
+    }
+
+    if (!loops.length) return;
+
+    // Detecteer of dezelfde loop_name in meerdere genders voorkomt
     const countByLoop = {};
     for (const t of loops) countByLoop[t.loop_name] = (countByLoop[t.loop_name] || 0) + 1;
-    const showGender = (ln) => countByLoop[ln] > 1;
-    const genderLabel = (t) => showGender(t.loop_name) ? ` (${t.tee_gender === "male" ? "H" : "D"})` : "";
+    const showGender  = (ln) => countByLoop[ln] > 1;
+    const genderLabel = (t)  => showGender(t.loop_name) ? ` (${t.tee_gender === "male" ? "H" : "D"})` : "";
 
-    const opts = loops.map((t) =>
-      `<option value="${t.id}"${t.id === currentId ? " selected" : ""}>${esc(t.loop_name)}${genderLabel(t)}</option>`
-    ).join("");
-
-    // Prepend a placeholder if nothing matches the current tee
-    const hasMatch = loops.some((t) => t.id === currentId);
-    sel.innerHTML = (hasMatch ? "" : `<option value="${currentId}">${sel.options[0]?.text || "—"}</option>`) + opts;
+    if (unlinked) {
+      // Toon lus + teefarbe zodat gebruiker exact kan kiezen
+      const opts = loops.map((t) =>
+        `<option value="${t.id}" data-course-id="${t.course_id}" data-tee="${esc(t.tee_name)}">${esc(t.loop_name)} — ${esc(t.tee_name)}${genderLabel(t)}</option>`
+      ).join("");
+      sel.innerHTML = `<option value="">Kies lus…</option>` + opts;
+    } else {
+      const hasMatch = loops.some((t) => t.id === currentId);
+      const opts = loops.map((t) =>
+        `<option value="${t.id}"${t.id === currentId ? " selected" : ""}>${esc(t.loop_name)}${genderLabel(t)}</option>`
+      ).join("");
+      sel.innerHTML = (hasMatch ? "" : `<option value="${currentId}">${sel.options[0]?.text || "—"}</option>`) + opts;
+    }
 
     sel.addEventListener("change", async () => {
       const newId = sel.value;
       if (!newId || newId === sel.dataset.current) return;
       try {
-        await updateRoundLoop(roundId, newId);
+        const extra = {};
+        if (unlinked) {
+          const opt = sel.options[sel.selectedIndex];
+          extra.course_id = opt.dataset.courseId;
+          extra.tee       = opt.dataset.tee;
+        }
+        await updateRoundLoop(roundId, newId, extra);
         sel.dataset.current = newId;
         const r = rounds.find((x) => x.id === roundId);
-        if (r) r.course_tee_id = newId;
+        if (r) {
+          r.course_tee_id = newId;
+          if (extra.course_id) r.course_id = extra.course_id;
+          if (extra.tee)       r.tee       = extra.tee;
+        }
         await refresh();
       } catch {
         alert("Opslaan mislukt.");
@@ -779,7 +807,7 @@ async function loadLoopSelect(sel) {
       }
     });
   } catch {
-    // Silently leave the placeholder as-is
+    // Placeholder laten staan bij fout
   }
 }
 

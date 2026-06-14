@@ -157,14 +157,58 @@ export async function getLoopsForRound(clubName, teeColor, holes) {
   return (tees || []).map((t) => ({ ...t, loop_name: loopMap[t.course_id] }));
 }
 
-// Sla de luskeuze op voor een ronde (course_tee_id bijwerken).
-export async function updateRoundLoop(roundId, courseTeeId) {
+// Sla de luskeuze op voor een ronde (course_tee_id + optioneel course_id/tee bijwerken).
+export async function updateRoundLoop(roundId, courseTeeId, extra = {}) {
   if (mode !== "supabase") return;
   await pgrest(`${TABLE}?id=eq.${roundId}`, {
     method: "PATCH",
-    body: JSON.stringify({ course_tee_id: courseTeeId }),
+    body: JSON.stringify({ course_tee_id: courseTeeId, ...extra }),
     headers: { "Prefer": "return=minimal" },
   });
+}
+
+// Zoek lussen voor golf.nl-geïmporteerde rondes met "Club ~ Lus" naam (geen teefarbe bekend).
+export async function getLoopsForCourseText(courseText, holes) {
+  if (mode !== "supabase") return [];
+  const tildeIdx = courseText.indexOf(" ~ ");
+  if (tildeIdx === -1) return [];
+
+  const clubRaw  = courseText.slice(0, tildeIdx).trim();
+  const loopHint = courseText.slice(tildeIdx + 3).trim();
+
+  // Strip veelvoorkomende golf-achtervoegsels om clubnaam te vereenvoudigen
+  const clubSimple = clubRaw
+    .replace(/\s+golf\s+club\s*/i, " ")
+    .replace(/\s+golf\s+estates?\s*/i, " ")
+    .replace(/\s+golf\s*$/i, "")
+    .replace(/\s+golfclub\s*/i, " ")
+    .replace(/\s+golfpark\s*/i, " ")
+    .trim();
+
+  const enc = encodeURIComponent(clubSimple);
+  const clubRows = await pgrest(`clubs?select=id,name&name=ilike.*${enc}*&country=eq.NL`);
+  if (!clubRows?.length) return [];
+
+  // Gebruik eerste woord van de lus-hint voor zoeken ("Pluut/Aak" → "Pluut")
+  const loopSearch = loopHint.split("/")[0].trim();
+  const encLoop = encodeURIComponent(loopSearch);
+
+  const results = [];
+  for (const club of clubRows) {
+    const courseRows = await pgrest(
+      `courses?select=id,loop_name&club_id=eq.${club.id}&loop_name=ilike.*${encLoop}*`
+    );
+    if (!courseRows?.length) continue;
+    const ids = courseRows.map((c) => c.id).join(",");
+    const tees = await pgrest(
+      `course_tees?select=id,tee_name,tee_gender,course_id&course_id=in.(${ids})&holes=eq.${holes}`
+    );
+    const loopMap = Object.fromEntries(courseRows.map((c) => [c.id, c.loop_name]));
+    for (const t of tees || []) {
+      results.push({ ...t, loop_name: loopMap[t.course_id] });
+    }
+  }
+  return results;
 }
 
 export async function saveRoundInsights(id, insights) {
