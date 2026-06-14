@@ -210,7 +210,7 @@ function mergeClubData() {
       const man = manMap[type];
       return {
         club_type: type,
-        club_display_name: man?.club_display_name ?? top?.club_display_name ?? type,
+        club_display_name: man?.club_display_name ?? CLUB_DEFAULT_NAMES[type] ?? top?.club_display_name ?? type,
         effective_carry_m: man?.carry_m ?? top?.median_carry_m ?? null,
         source: man ? (top ? "both" : "manual") : "toptracer",
         manual: man ?? null,
@@ -229,64 +229,51 @@ function gapColorClass(gap) {
   return gap > 22 ? "red" : gap > 15 ? "orange" : "green";
 }
 
-function renderGappingLadder(clubs) {
-  const nonPutter = clubs.filter((c) => c.club_type !== "Putter");
-  if (nonPutter.length < 2) return "";
-  const maxDist = nonPutter[0].effective_carry_m;
-  const minDist = nonPutter[nonPutter.length - 1].effective_carry_m;
-  const range   = Math.max(maxDist - minDist, 1);
-  const height  = Math.max(280, nonPutter.length * 34 + 20);
-
-  let rows = "";
-  for (let i = 0; i < nonPutter.length; i++) {
-    const club   = nonPutter[i];
-    const topPct = ((maxDist - club.effective_carry_m) / range) * 100;
-    const src    = club.source;
-    const srcLbl = src === "toptracer" ? "T" : "H";
-    const srcTip = src === "both"
-      ? `Handmatig · Toptracer: ${Math.round(club.toptracer.median_carry_m)}m`
-      : src === "manual" ? "Handmatig" : `Toptracer · ${club.toptracer?.shot_count ?? 0}x`;
-    rows += `<div class="gl-row" style="top:${topPct.toFixed(1)}%" data-club-type="${esc(club.club_type)}">
-      <span class="gl-dist">${Math.round(club.effective_carry_m)}</span>
-      <span class="gl-dot gl-dot--${src}" title="${esc(srcTip)}"></span>
-      <span class="gl-name">${esc(club.club_display_name)}</span>
-      <span class="gl-badge gl-badge--${src}">${srcLbl}</span>
-    </div>`;
-    if (i < nonPutter.length - 1) {
-      const gap    = Math.round(club.effective_carry_m - nonPutter[i + 1].effective_carry_m);
-      const midPct = ((maxDist - (club.effective_carry_m + nonPutter[i + 1].effective_carry_m) / 2) / range) * 100;
-      rows += `<div class="gl-gap gl-gap--${gapColorClass(gap)}" style="top:${midPct.toFixed(1)}%">↕ ${gap}m</div>`;
-    }
-  }
-  return `<div class="gapping-ladder" style="height:${height}px"><div class="gl-line"></div>${rows}</div>`;
-}
-
-function renderClubTable(clubs) {
+function renderBagContent(clubs) {
   if (!clubs.length) return "";
-  let html = `<div class="club-list">`;
-  for (let i = 0; i < clubs.length; i++) {
-    const club     = clubs[i];
-    const isPutter = club.club_type === "Putter";
-    const next     = !isPutter ? clubs.slice(i + 1).find((c) => c.club_type !== "Putter") : null;
-    const gap      = next ? Math.round(club.effective_carry_m - next.effective_carry_m) : null;
+  const nonPutter = clubs.filter((c) => c.club_type !== "Putter");
+  const putter    = clubs.find((c) => c.club_type === "Putter");
+
+  function clubRow(club) {
     const srcClass = club.source === "toptracer" ? "toptracer" : "manual";
     const srcLbl   = club.source === "toptracer" ? "T" : "H";
     let sub = "";
     if (club.source === "both") sub = `Toptracer: ${Math.round(club.toptracer.median_carry_m)}m`;
     else if (club.source === "toptracer" && club.toptracer?.shot_count) sub = `${club.toptracer.shot_count} slagen`;
     else if (club.manual?.notes) sub = club.manual.notes;
-    html += `<div class="club-list-row">
+    return `<div class="club-list-row">
       <span class="cl-badge cl-badge--${srcClass}">${srcLbl}</span>
       <div class="cl-info">
         <span class="cl-name">${esc(club.club_display_name)}</span>
         ${sub ? `<span class="cl-sub">${esc(sub)}</span>` : ""}
       </div>
       <div class="cl-right">
-        ${gap != null ? `<span class="cl-gap cl-gap--${gapColorClass(gap)}">↕${gap}m</span>` : ""}
         <span class="cl-dist">${Math.round(club.effective_carry_m)}m</span>
         <button class="cl-edit-btn" data-club-type="${esc(club.club_type)}" aria-label="Bewerken">✏️</button>
       </div>
     </div>`;
+  }
+
+  function gapRow(gap) {
+    const cls  = gapColorClass(gap);
+    const warn = gap > 22 ? " — groot gat" : gap > 15 ? " — let op" : "";
+    return `<div class="gap-row gap-row--${cls}">
+      <span class="gap-row__tick"></span>
+      <span class="gap-row__lbl">↕ ${gap}m${warn}</span>
+    </div>`;
+  }
+
+  let html = `<div class="club-list">`;
+  for (let i = 0; i < nonPutter.length; i++) {
+    html += clubRow(nonPutter[i]);
+    if (nonPutter[i + 1]) {
+      const gap = Math.round(nonPutter[i].effective_carry_m - nonPutter[i + 1].effective_carry_m);
+      html += gapRow(gap);
+    }
+  }
+  if (putter) {
+    html += `<div class="gap-row gap-row--divider"></div>`;
+    html += clubRow(putter);
   }
   return html + `</div>`;
 }
@@ -308,7 +295,7 @@ async function renderBagView() {
       $("#bagGoSettings2")?.addEventListener("click", () => switchView("settings"));
       return;
     }
-    content.innerHTML = renderGappingLadder(clubs) + renderClubTable(clubs);
+    content.innerHTML = renderBagContent(clubs);
     content.querySelectorAll(".cl-edit-btn").forEach((btn) =>
       btn.addEventListener("click", (e) => { e.stopPropagation(); openClubModal(btn.dataset.clubType); })
     );
