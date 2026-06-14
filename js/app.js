@@ -8,7 +8,7 @@ import {
   getClubBag, getToptracerStatus, saveToptracerCredentials, clearToptracerCredentials,
   saveRoundInsights, patchRoundStats, getLoopsForRound, updateRoundLoop, saveGoal,
   callCoachAdvice,
-} from "./db.js?v=34";
+} from "./db.js?v=35";
 import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=18";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
@@ -1117,11 +1117,10 @@ function syncProviderRadio() {
   if (radio) radio.checked = true;
 }
 
-function saveCoachCache(advice, provider, coachData) {
+function saveCoachCache(advice, provider) {
   try {
     localStorage.setItem(COACH_CACHE_KEY, JSON.stringify({
       advice,
-      coachData: coachData ?? null,
       provider: provider || "gemini",
       generatedAt: Date.now(),
       roundCount: rounds.length,
@@ -1181,12 +1180,10 @@ async function runCoachAnalysis() {
   loading.hidden = false;
 
   try {
-    const provider         = document.querySelector('input[name="coachProvider"]:checked')?.value || "gemini";
-    const coachData        = computeCoachData(rounds, userGoal);
-    const prevCache        = loadCoachCache();
-    const previousCoachData = prevCache?.coachData ?? null;
-    const advice    = await callCoachAdvice(coachData, provider, previousCoachData);
-    saveCoachCache(advice, provider, coachData);
+    const provider  = document.querySelector('input[name="coachProvider"]:checked')?.value || "gemini";
+    const coachData = computeCoachData(rounds, userGoal);
+    const advice    = await callCoachAdvice(coachData, provider);
+    saveCoachCache(advice, provider);
     renderCoachResult(advice, provider);
     loading.hidden = true;
     result.hidden  = false;
