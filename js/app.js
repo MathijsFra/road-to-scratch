@@ -402,7 +402,7 @@ function openClubModal(clubType) {
     typeGrp.hidden = false;
     nameIn.value = ""; carryIn.value = ""; notesIn.value = "";
     hint.hidden = true; resetBtn.hidden = true; delBtn.hidden = true;
-    const existing  = new Set(clubs.map((c) => c.club_type));
+    const existing  = new Set(_manualDistances.map((c) => c.club_type));
     const available = CLUB_ORDER.filter((t) => !existing.has(t));
     typeSel.innerHTML = available
       .map((t) => `<option value="${esc(t)}">${esc(CLUB_DEFAULT_NAMES[t] || t)}</option>`)
