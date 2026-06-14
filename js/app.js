@@ -1100,7 +1100,22 @@ function startGarminPoll() {
 }
 
 // ---------- coach ----------
-const COACH_CACHE_KEY = "coach_advice_v1";
+const COACH_CACHE_KEY    = "coach_advice_v1";
+const COACH_PROVIDER_KEY = "coach_provider_v1";
+
+function saveCoachProvider(provider) {
+  try { localStorage.setItem(COACH_PROVIDER_KEY, provider); } catch { /* ignore */ }
+}
+
+function loadCoachProvider() {
+  try { return localStorage.getItem(COACH_PROVIDER_KEY) || "groq"; } catch { return "groq"; }
+}
+
+function syncProviderRadio() {
+  const saved = loadCoachProvider();
+  const radio = document.querySelector(`input[name="coachProvider"][value="${saved}"]`);
+  if (radio) radio.checked = true;
+}
 
 function saveCoachCache(advice, provider) {
   try {
@@ -1125,6 +1140,7 @@ function isCoachStale(cached) {
 }
 
 function showCoachView() {
+  syncProviderRadio();
   const cached = loadCoachCache();
   if (!cached) return; // geen cache → intro blijft zichtbaar
 
@@ -1189,7 +1205,7 @@ function renderCoachResult(advice, provider) {
   const summaryCard = $("#coachSummaryCard");
   const adviezen    = $("#coachAdviezen");
   const goalCard    = $("#coachGoalCard");
-  const modelLabel  = { groq: "Groq · llama-3.3-70b", gemini: "Google · Gemini 2.0 Flash" };
+  const modelLabel  = { groq: "Groq · llama-3.3-70b", gemini: "Google · Gemini 2.5 Flash" };
 
   summaryCard.innerHTML = `<p class="coach-summary-text">${esc(advice.samenvatting ?? "")}</p>`;
   const modelTag = $("#coachModelTag");
@@ -1246,6 +1262,7 @@ async function main() {
   $("#coachAnalyseBtn")?.addEventListener("click", runCoachAnalysis);
   $("#coachStaleRefreshBtn")?.addEventListener("click", runCoachAnalysis);
   $("#coachRefreshBtn")?.addEventListener("click", runCoachAnalysis);
+  $$('input[name="coachProvider"]').forEach((r) => r.addEventListener("change", () => saveCoachProvider(r.value)));
   $$(".tab").forEach((t) => {
     if (t.dataset.view === "coach") {
       t.addEventListener("click", showCoachView);
