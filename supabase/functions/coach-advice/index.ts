@@ -41,7 +41,7 @@ async function callLLM(provider: string, systemPrompt: string, userMessage: stri
   if (provider === "gemini") {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is niet ingesteld op de server.");
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
