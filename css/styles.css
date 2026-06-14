@@ -430,6 +430,11 @@ html, body {
   margin-right: 3px;
   vertical-align: middle;
 }
+.score-dist-detail {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
 
 /* ---------- EXS list ---------- */
 .exs-list { display: flex; flex-direction: column; gap: 8px; }

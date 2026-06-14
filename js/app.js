@@ -194,29 +194,37 @@ function renderAdvancedStats(adv) {
   // Scoreverdeling
   if (adv.scoreDist) {
     const sd = adv.scoreDist;
-    const segments = [
-      { key: "eagle",  label: "Eagle",   color: "var(--green-700)", pct: sd.eagle + sd.birdie },
-      { key: "birdie", label: "Birdie",  color: "var(--green-500)", pct: sd.birdie },
-      { key: "par",    label: "Par",     color: "var(--muted)",     pct: sd.par    },
-      { key: "bogey",  label: "Bogey",   color: "var(--gold)",      pct: sd.bogey  },
-      { key: "double", label: "Double+", color: "var(--danger)",    pct: sd.double + sd.worse },
-    ];
     const bars = [
-      { label: "Eagle/Birdie", color: "var(--green-700)", pct: sd.eagle + sd.birdie },
-      { label: "Par",          color: "#888",             pct: sd.par    },
-      { label: "Bogey",        color: "var(--gold)",      pct: sd.bogey  },
-      { label: "Double+",      color: "var(--danger)",    pct: sd.double + sd.worse },
+      { label: "Albatros/Eagle", color: "var(--green-700)", pct: sd.albatross + sd.eagle + sd.birdie },
+      { label: "Par",            color: "#888",             pct: sd.par    },
+      { label: "Bogey",          color: "#D97706",          pct: sd.bogey  },
+      { label: "Double bogey",   color: "var(--danger)",    pct: sd.double },
+      { label: "Triple of erger",color: "#7f1d1d",          pct: sd.triple + sd.worse },
     ];
     const barHtml = bars.map((b) => b.pct > 0
-      ? `<div class="score-dist-bar" style="width:${b.pct}%;background:${b.color}" title="${b.label}: ${b.pct}%"></div>`
+      ? `<div class="score-dist-bar" style="width:${b.pct}%;background:${b.color}" title="${esc(b.label)}: ${b.pct}%"></div>`
       : ""
     ).join("");
+    // Detaillegende met alle buckets die voorkomen
+    const detail = [
+      { label: "Albatros of beter", pct: sd.albatross + sd.eagle },
+      { label: "Birdie",            pct: sd.birdie  },
+      { label: "Par",               pct: sd.par     },
+      { label: "Bogey",             pct: sd.bogey   },
+      { label: "Double bogey",      pct: sd.double  },
+      { label: "Triple bogey",      pct: sd.triple  },
+      { label: "Erger",             pct: sd.worse   },
+    ].filter((d) => d.pct > 0);
     const legendHtml = bars.map((b) =>
       `<span class="score-dist-legend-dot" style="background:${b.color}"></span>${esc(b.label)} <strong>${b.pct}%</strong>`
     ).join(" &nbsp; ");
+    const detailHtml = detail.length > 3
+      ? `<div class="score-dist-detail">${detail.map((d) => `${esc(d.label)}: <strong>${d.pct}%</strong>`).join(" · ")}</div>`
+      : "";
     $("#scoreDistGrid").innerHTML = `
       <div class="score-dist-track">${barHtml}</div>
-      <div class="score-dist-legend">${legendHtml}</div>`;
+      <div class="score-dist-legend">${legendHtml}</div>
+      ${detailHtml}`;
   } else {
     $("#scoreDistGrid").innerHTML = emptyNote("Nog geen score-per-hole-data beschikbaar (minimaal 18 holes nodig).");
   }

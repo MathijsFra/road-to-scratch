@@ -263,15 +263,17 @@ function scoreDistrib(r) {
   const hd = holesData(r);
   const ap = hd.filter((h) => num(h.score) !== null && num(h.par) !== null);
   if (!ap.length) return null;
-  const counts = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, worse: 0 };
+  const counts = { albatross: 0, eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, triple: 0, worse: 0 };
   for (const h of ap) {
     const d = num(h.score) - num(h.par);
-    if (d <= -2)       counts.eagle++;
+    if (d <= -3)       counts.albatross++;  // albatros, hole-in-one op par 4+
+    else if (d === -2) counts.eagle++;
     else if (d === -1) counts.birdie++;
     else if (d === 0)  counts.par++;
     else if (d === 1)  counts.bogey++;
     else if (d === 2)  counts.double++;
-    else               counts.worse++;
+    else if (d === 3)  counts.triple++;
+    else               counts.worse++;      // quadruple bogey en erger
   }
   return { ...counts, total: ap.length };
 }
@@ -292,7 +294,7 @@ export function computeAdvanced(rounds) {
   let scramSaved = 0, scramTotal = 0;
   const gp = { 3: { hit: 0, total: 0 }, 4: { hit: 0, total: 0 }, 5: { hit: 0, total: 0 } };
   const pd = { one: 0, two: 0, threePlus: 0, total: 0 };
-  const sc = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, worse: 0, total: 0 };
+  const sc = { albatross: 0, eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, triple: 0, worse: 0, total: 0 };
   const fronts = [], backs = [];
 
   for (const r of rounds) {
@@ -308,7 +310,7 @@ export function computeAdvanced(rounds) {
     if (pu) { pd.one += pu.one; pd.two += pu.two; pd.threePlus += pu.threePlus; pd.total += pu.total; }
 
     const sd = scoreDistrib(r);
-    if (sd) { for (const k of ["eagle","birdie","par","bogey","double","worse","total"]) sc[k] += sd[k]; }
+    if (sd) { for (const k of ["albatross","eagle","birdie","par","bogey","double","triple","worse","total"]) sc[k] += sd[k]; }
 
     const fb = frontBackStats(r);
     if (fb) { fronts.push(fb.front); backs.push(fb.back); }
@@ -326,12 +328,14 @@ export function computeAdvanced(rounds) {
       threePlus: Math.round((pd.threePlus / pd.total) * 100),
     } : null,
     scoreDist:       sc.total >= 18 ? {
-      eagle:  Math.round((sc.eagle  / sc.total) * 100),
-      birdie: Math.round((sc.birdie / sc.total) * 100),
-      par:    Math.round((sc.par    / sc.total) * 100),
-      bogey:  Math.round((sc.bogey  / sc.total) * 100),
-      double: Math.round((sc.double / sc.total) * 100),
-      worse:  Math.round((sc.worse  / sc.total) * 100),
+      albatross: Math.round((sc.albatross / sc.total) * 100),
+      eagle:     Math.round((sc.eagle     / sc.total) * 100),
+      birdie:    Math.round((sc.birdie    / sc.total) * 100),
+      par:       Math.round((sc.par       / sc.total) * 100),
+      bogey:     Math.round((sc.bogey     / sc.total) * 100),
+      double:    Math.round((sc.double    / sc.total) * 100),
+      triple:    Math.round((sc.triple    / sc.total) * 100),
+      worse:     Math.round((sc.worse     / sc.total) * 100),
     } : null,
     frontAvg:        fronts.length ? round1(avg(fronts)) : null,
     backAvg:         backs.length  ? round1(avg(backs))  : null,
