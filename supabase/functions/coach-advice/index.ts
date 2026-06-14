@@ -41,7 +41,7 @@ async function callLLM(provider: string, systemPrompt: string, userMessage: stri
   if (provider === "gemini") {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is niet ingesteld op de server.");
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -51,7 +51,7 @@ async function callLLM(provider: string, systemPrompt: string, userMessage: stri
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.4,
-            maxOutputTokens: 1500,
+            maxOutputTokens: 8192,
           },
         }),
       }
@@ -121,8 +121,8 @@ K1 -- Niveau-gebaseerd: Vergelijk altijd met de benchmarks voor het huidige nive
 
 K2 -- Prioriteer op impact:
   STAP 1: Controleer gaps. Zijn er statistieken met gaps[stat] > 0? Geef daarvoor adviezen (max 5), gesorteerd op gaps-waarde hoogste eerst. Sla statistieken met gaps[stat] <= 0 of null volledig over -- noem ze nergens.
-  STAP 2: Als ALLE gaps <= 0 (speler haalt alle huidige benchmarks): gebruik nextLevelGaps. Geef adviezen voor statistieken met de hoogste nextLevelGaps (max 3). Gebruik als doel_waarde de waarde uit nextLevelBenchmarks. Zet in de samenvatting dat de speler boven het huidige niveau presteert en de adviezen gericht zijn op het volgende niveau.
-  STAP 3: Als ook nextLevelGaps null is (scratch): adviezen=[], samenvatting = speler speelt op hoogste niveau.
+  STAP 2: Als ALLE gaps <= 0 (speler haalt alle huidige benchmarks): gebruik nextLevelGaps. Geef adviezen voor statistieken met de hoogste nextLevelGaps (max 3). Gebruik als doel_waarde de waarde uit nextLevelBenchmarks. Zet in de samenvatting dat de speler boven het huidige niveau presteert en op weg is naar het volgende niveau. VERPLICHT: elk advies bevat een concrete oefening of trainingssuggestie -- HOE de speler eraan werkt, niet alleen WAT de doelwaarde is. Voorbeeld: "Oefen 2x per week approach shots vanaf 80-130m: 20 ballen naar een cirkel van 10m rondom de pin -- dit is de snelste route naar een hogere GIR%."
+  STAP 3: Als ook nextLevelGaps null is (scratch of hoogste niveau): adviezen=[], samenvatting = compliment dat speler op het hoogste niveau presteert.
   Impact-volgorde bij gelijke gap: GIR% -> DB-rate -> 3-putts -> FW% -> penalties.
 
 K3 -- Actionable: Elk advies moet specifiek en uitvoerbaar zijn. Goed: "Oefen dagelijks 20 putts tussen 1-3 meter." Fout: "Verbeter je putting."
@@ -138,6 +138,14 @@ K7 -- Eerlijk: Vermeld als data beperkt is, bijv. hasHoleData < 3 voor GIR/FW-an
 K8 -- Trend boven momentopname: Verbeterende statistiek heeft lagere prioriteit dan stagnerende of verslechterende.
 
 K9 -- Persoonlijke doelen: Koppel adviezen aan targetHcp en targetDate als die beschikbaar zijn.
+
+K10 -- Follow-up (alleen als VORIGE ANALYSE-SNAPSHOT aanwezig is):
+  Begin de samenvatting met een concrete terugkoppeling op de vorige analyse.
+  Vergelijk trends.*.recent (huidig) met de vorige snapshot trends.*.recent (vorig).
+  Benoem wat verbeterd is (positief) en wat stagneerde of verslechterde.
+  Vermeld hoeveel qualifying rondes er zijn bijgekomen (huidig qualifying minus vorig qualifying).
+  Voorbeeld samenvatting: "Sinds de vorige analyse heb je 3 rondes gespeeld. Je double bogey rate daalde van 48% naar 41% -- goed werk! Je GIR% zakte echter van 14% naar 11% en verdient nu extra aandacht."
+  De adviezen zelf blijven forward-looking op basis van de huidige gaps (K2-logica) -- niet op basis van de vorige adviezen.
 
 Geef je antwoord als JSON:
 {
@@ -171,25 +179,32 @@ Deno.serve(async (req: Request) => {
   if (!user?.id) return json({ error: "Ongeldige sessie" }, 401);
 
   let coachData: unknown;
-  let provider = "groq";
+  let previousCoachData: unknown = null;
+  let provider = "gemini";
   try {
     const body = await req.json();
     coachData = body.coachData;
-    if (body.provider === "gemini") provider = "gemini";
+    if (body.provider === "groq") provider = "groq";
+    if (body.previousCoachData) previousCoachData = body.previousCoachData;
     if (!coachData) throw new Error();
   } catch {
     return json({ error: "coachData is verplicht in de request body" }, 400);
   }
 
   try {
-    const userMessage = `Analyseer deze golfstatistieken en geef advies:\n${JSON.stringify(coachData, null, 2)}`;
+    let userMessage = `Analyseer deze golfstatistieken en geef advies:\n${JSON.stringify(coachData, null, 2)}`;
+    if (previousCoachData) {
+      userMessage += `\n\nVORIGE ANALYSE-SNAPSHOT (voor vergelijking -- gebruik dit voor de terugkoppeling in de samenvatting):\n${JSON.stringify(previousCoachData, null, 2)}`;
+    }
     const text = await callLLM(provider, SYSTEM_PROMPT, userMessage);
 
     let advice: unknown;
     try {
-      advice = JSON.parse(text);
+      // Gemini kan soms markdown code fences teruggeven (```json ... ```)
+      const clean = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      advice = JSON.parse(clean);
     } catch {
-      throw new Error("Kon het advies niet verwerken. Probeer het opnieuw.");
+      throw new Error(`Kon het advies niet verwerken. Raw response: ${text.slice(0, 300)}`);
     }
 
     return json(advice);

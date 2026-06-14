@@ -1117,11 +1117,12 @@ function syncProviderRadio() {
   if (radio) radio.checked = true;
 }
 
-function saveCoachCache(advice, provider) {
+function saveCoachCache(advice, provider, coachData) {
   try {
     localStorage.setItem(COACH_CACHE_KEY, JSON.stringify({
       advice,
-      provider: provider || "groq",
+      coachData: coachData ?? null,
+      provider: provider || "gemini",
       generatedAt: Date.now(),
       roundCount: rounds.length,
     }));
@@ -1180,10 +1181,12 @@ async function runCoachAnalysis() {
   loading.hidden = false;
 
   try {
-    const provider  = document.querySelector('input[name="coachProvider"]:checked')?.value || "groq";
-    const coachData = computeCoachData(rounds, userGoal);
-    const advice    = await callCoachAdvice(coachData, provider);
-    saveCoachCache(advice, provider);
+    const provider         = document.querySelector('input[name="coachProvider"]:checked')?.value || "gemini";
+    const coachData        = computeCoachData(rounds, userGoal);
+    const prevCache        = loadCoachCache();
+    const previousCoachData = prevCache?.coachData ?? null;
+    const advice    = await callCoachAdvice(coachData, provider, previousCoachData);
+    saveCoachCache(advice, provider, coachData);
     renderCoachResult(advice, provider);
     loading.hidden = true;
     result.hidden  = false;
