@@ -10,7 +10,7 @@ import {
   updateRoundLoop, saveGoal,
   callCoachAdvice, getManualDistances, upsertManualDistance, deleteManualDistance,
 } from "./db.js?v=37";
-import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=21";
+import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=22";
 import { renderHcpChart, renderStbChart, renderTrendChart, renderScoreBreakdownChart, renderRadarChart, renderMultiStatTrendChart } from "./charts.js?v=14";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];

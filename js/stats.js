@@ -42,7 +42,10 @@ function girCount(r) {
 }
 function fairwayStats(r) {
   const hd = holesData(r);
-  const applicable = hd.filter((h) => h.fairway !== null && h.fairway !== undefined && h.fairway !== "");
+  // Exclude par-3 holes: no fairway shot needed, their fairway value distorts the %
+  const applicable = hd.filter((h) =>
+    h.fairway !== null && h.fairway !== undefined && h.fairway !== "" && num(h.par) !== 3
+  );
   if (applicable.length) {
     const hit = applicable.filter((h) => h.fairway === "hit").length;
     return { hit, total: applicable.length };
@@ -126,7 +129,7 @@ export function computeStats(rounds) {
     lowestSd: lowestSd !== null ? round1(lowestSd) : null,
     exsRounds,
     avgScore20: avgScoreLast20(annotated),
-    play: computePlay(annotated),
+    play: computePlay(annotated.filter(r => !isNonQualifying(r))),
     par: computePar(annotated),
     garmin: computeGarmin(annotated),
     advanced: computeAdvanced(annotated),
