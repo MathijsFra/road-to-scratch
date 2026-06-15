@@ -42,7 +42,12 @@ function girCount(r) {
 }
 function fairwayStats(r) {
   const hd = holesData(r);
-  // Exclude par-3 holes: no fairway shot needed
+  // Skip par-3 courses: if >50% of holes are par-3 there are no fairway shots
+  if (hd.length >= 6) {
+    const par3count = hd.filter((h) => num(h.par) === 3).length;
+    if (par3count / hd.length > 0.5) return null;
+  }
+  // Exclude individual par-3 holes: no fairway shot needed
   const nonPar3 = hd.filter((h) => num(h.par) !== 3);
   // Use per-hole data if at least one hole has a fairway value recorded.
   // Holes with no value (null/"") count as missed — only "hit" is a hit.
