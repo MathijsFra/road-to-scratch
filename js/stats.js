@@ -130,6 +130,10 @@ export function computeStats(rounds) {
     par: computePar(annotated),
     garmin: computeGarmin(annotated),
     advanced: computeAdvanced(annotated),
+    puttsByGir: computePuttsByGir(annotated),
+    courseStats: computeCourseStats(annotated),
+    holeDifficulty: computeHoleDifficulty(annotated),
+    seasonStats: computeSeasonStats(annotated),
     trend: rollingTrend(annotated, 10),
   };
 }
@@ -514,6 +518,160 @@ export function computeCoachData(rounds, userGoal = {}) {
     nextLevelBenchmarks,
     nextLevelGaps,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Groep A — extra statistieken op bestaande data
+// ---------------------------------------------------------------------------
+
+// Gemiddeld putts per hole: GIR-holes vs niet-GIR-holes.
+export function computePuttsByGir(rounds) {
+  const withGir = [], withoutGir = [];
+  for (const r of rounds) {
+    for (const h of holesData(r)) {
+      const p = num(h.putts);
+      if (p === null) continue;
+      if (h.gir === true)  withGir.push(p);
+      if (h.gir === false) withoutGir.push(p);
+    }
+  }
+  return {
+    girAvg:    withGir.length    >= 10 ? round1(avg(withGir))    : null,
+    noGirAvg:  withoutGir.length >= 10 ? round1(avg(withoutGir)) : null,
+    girCount:  withGir.length,
+    noGirCount: withoutGir.length,
+  };
+}
+
+// Gemiddeld STB/score per baannaam (minimaal 2 bezoeken, max 8 banen).
+export function computeCourseStats(rounds) {
+  const map = {};
+  for (const r of rounds) {
+    const name = (r.course || "").split(" ~ ")[0].trim();
+    if (!name) continue;
+    if (!map[name]) map[name] = { scores: [], stbs: [], sds: [], count: 0 };
+    const factor = r.holes === 9 ? 2 : 1;
+    const s   = num(r.score);
+    const stb = num(r.stb);
+    const sd  = num(r.sd);
+    if (s   !== null) map[name].scores.push(s * factor);
+    if (stb !== null) map[name].stbs.push(stb);
+    if (sd  !== null) map[name].sds.push(sd);
+    map[name].count++;
+  }
+  return Object.entries(map)
+    .filter(([, c]) => c.count >= 2)
+    .sort(([, a], [, b]) => b.count - a.count)
+    .slice(0, 8)
+    .map(([name, c]) => ({
+      name,
+      count:    c.count,
+      avgStb:   c.stbs.length   ? round1(avg(c.stbs))   : null,
+      bestStb:  c.stbs.length   ? Math.max(...c.stbs)    : null,
+      avgSd:    c.sds.length    ? round1(avg(c.sds))     : null,
+      avgScore: c.scores.length ? round1(avg(c.scores))  : null,
+    }));
+}
+
+// Gemiddeld score vs par per holenummer (1–18), minimaal 3 meetpunten.
+export function computeHoleDifficulty(rounds) {
+  const data = {};
+  for (const r of rounds) {
+    for (const h of holesData(r)) {
+      const n = num(h.hole);
+      const s = num(h.score);
+      const p = num(h.par);
+      if (n === null || s === null || p === null || n < 1 || n > 18) continue;
+      if (!data[n]) data[n] = { diffs: [], pars: [] };
+      data[n].diffs.push(s - p);
+      data[n].pars.push(p);
+    }
+  }
+  return Array.from({ length: 18 }, (_, i) => i + 1)
+    .map(n => {
+      const d = data[n];
+      if (!d || d.diffs.length < 3) return null;
+      return { hole: n, avgDiff: round1(avg(d.diffs)), avgPar: round1(avg(d.pars)), count: d.diffs.length };
+    })
+    .filter(Boolean);
+}
+
+// Kerncijfers per kalenderjaar (laatste 3 seizoenen).
+export function computeSeasonStats(rounds) {
+  const years = {};
+  for (const r of rounds) {
+    const y = r.date ? r.date.slice(0, 4) : null;
+    if (!y) continue;
+    if (!years[y]) years[y] = [];
+    years[y].push(r);
+  }
+  return Object.entries(years)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, 3)
+    .map(([year, rs]) => {
+      const stbs18 = rs.filter(r => r.holes === 18 && num(r.stb) !== null).map(r => num(r.stb));
+      const play   = computePlay(rs);
+      const adv    = computeAdvanced(rs);
+      const hcps   = rs.filter(r => !isNonQualifying(r)).map(r => num(r.hcp)).filter(v => v !== null);
+      return {
+        year,
+        count:      rs.length,
+        avgStb18:   stbs18.length ? round1(avg(stbs18)) : null,
+        girPct:     play.girPct,
+        fairwayPct: play.fairwayPct,
+        threePutts: play.threePutts,
+        scrambling: adv.scrambling,
+        startHcp:   hcps[0]  ?? null,
+        endHcp:     hcps[hcps.length - 1] ?? null,
+      };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Strokes Gained baseline — Broadie (PGA Tour, publieke data).
+// Gebruik: sgExpected(afstand, lie) → verwachte slagen tot hole-out.
+// Putting: afstand in feet. Off-green: afstand in yards.
+// ---------------------------------------------------------------------------
+const _SG_PUTT = [
+  [0,1.0],[1,1.0],[2,1.01],[3,1.04],[4,1.11],[5,1.21],[6,1.30],[7,1.37],
+  [8,1.42],[9,1.46],[10,1.50],[11,1.53],[12,1.56],[15,1.64],[20,1.77],
+  [25,1.87],[30,1.95],[40,2.09],[50,2.18],[60,2.26],[80,2.38],[100,2.47],
+];
+const _SG_FAIRWAY = [
+  [5,2.18],[10,2.40],[20,2.52],[30,2.61],[40,2.68],[50,2.74],[60,2.80],
+  [70,2.85],[80,2.88],[90,2.91],[100,2.95],[110,2.99],[120,3.02],[130,3.05],
+  [140,3.08],[150,3.11],[160,3.14],[175,3.17],[200,3.22],[225,3.29],[250,3.37],
+  [275,3.46],[300,3.54],[350,3.70],[400,3.85],[450,4.02],[500,4.20],
+];
+const _SG_ROUGH = [
+  [5,2.27],[10,2.46],[20,2.60],[30,2.70],[40,2.78],[50,2.85],[60,2.91],
+  [70,2.96],[80,3.00],[90,3.04],[100,3.08],[120,3.16],[140,3.24],[150,3.28],
+  [175,3.36],[200,3.44],[225,3.52],[250,3.60],[300,3.78],
+];
+const _SG_BUNKER = [
+  [5,2.50],[10,2.60],[15,2.68],[20,2.76],[30,2.90],[40,3.02],[50,3.14],
+  [60,3.24],[80,3.44],[100,3.60],[120,3.74],
+];
+
+function _sgInterp(dist, table) {
+  if (dist <= table[0][0]) return table[0][1];
+  const last = table[table.length - 1];
+  if (dist >= last[0]) return last[1];
+  for (let i = 0; i < table.length - 1; i++) {
+    if (dist <= table[i + 1][0]) {
+      const t = (dist - table[i][0]) / (table[i + 1][0] - table[i][0]);
+      return table[i][1] + t * (table[i + 1][1] - table[i][1]);
+    }
+  }
+  return last[1];
+}
+
+// lie: "putt" (afstand in feet) | "fairway" | "rough" | "bunker" | "tee" (allen in yards)
+export function sgExpected(distance, lie) {
+  if (lie === "putt")                      return _sgInterp(distance, _SG_PUTT);
+  if (lie === "bunker")                    return _sgInterp(distance, _SG_BUNKER);
+  if (lie === "rough" || lie === "penalty") return _sgInterp(distance, _SG_ROUGH);
+  return _sgInterp(distance, _SG_FAIRWAY);
 }
 
 // Voortschrijdend gemiddelde van het dagresultaat (SD) over een venster van `window` rondes.

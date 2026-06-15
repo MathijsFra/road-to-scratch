@@ -10,7 +10,7 @@ import {
   updateRoundLoop, saveGoal,
   callCoachAdvice, getManualDistances, upsertManualDistance, deleteManualDistance,
 } from "./db.js?v=37";
-import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=19";
+import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=20";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
@@ -123,6 +123,13 @@ function renderDashboard() {
   } else {
     $("#garminGrid").innerHTML = emptyNote("Nog geen Garmin-data (putts, bunkers).");
   }
+
+  // Groep A — nieuwe statistieken
+  renderPuttsByGir(stats.puttsByGir);
+  renderPracticePlanner(computeWeakspots(stats), stats.advanced);
+  renderSeasonStats(stats.seasonStats);
+  renderCourseStats(stats.courseStats);
+  renderHoleDifficulty(stats.holeDifficulty);
 
   // EXS — sectie alleen zichtbaar als er daadwerkelijk EXS-rondes zijn
   const hasExs = stats.exsRounds.length > 0;
@@ -242,6 +249,138 @@ function renderAdvancedStats(adv) {
   } else {
     $("#frontBackGrid").innerHTML = emptyNote("Nog geen 18-holes rondes met volledige per-hole data.");
   }
+}
+
+// ---------- Groep A render-functies ----------
+
+function renderPuttsByGir(data) {
+  const el = $("#puttsByGirGrid");
+  if (!el) return;
+  const title = $("#puttsByGirTitle");
+  if (!data.girAvg && !data.noGirAvg) {
+    if (title) title.hidden = true;
+    el.hidden = true;
+    return;
+  }
+  if (title) title.hidden = false;
+  el.hidden = false;
+  const cards = [];
+  if (data.girAvg != null)   cards.push(card("Putts na GIR",    data.girAvg.toFixed(1),   `gem. per hole (${data.girCount}×)`));
+  if (data.noGirAvg != null) cards.push(card("Putts na non-GIR", data.noGirAvg.toFixed(1), `gem. per hole (${data.noGirCount}×)`));
+  if (data.girAvg != null && data.noGirAvg != null) {
+    const diff = Math.round((data.noGirAvg - data.girAvg) * 10) / 10;
+    cards.push(card("Verschil", `+${diff.toFixed(1)}`, "meer putts bij gemiste green"));
+  }
+  el.innerHTML = cards.join("");
+}
+
+const PRACTICE_DRILLS = {
+  "GIR":          { drill: "Benaderingsshots naar een target op de range", time: 30 },
+  "Fairways":     { drill: "Driver richting — oefen naar smal doel op de range", time: 20 },
+  "3-putts":      { drill: "Lange putts ≥ 8m — oefen afstandscontrole", time: 20 },
+  "Penalties":    { drill: "Rondemanagement — kies conservatieve lijnen", time: 15 },
+  "Double bogeys":{ drill: "Bogey-vermijding — speel van tee met kortere club", time: 15 },
+  "Scrambling":   { drill: "Chipping vanuit moeilijke ligging rondom de green", time: 25 },
+};
+
+function renderPracticePlanner(weakspots, adv) {
+  const el = $("#practicePlanGrid");
+  const title = $("#practicePlanTitle");
+  if (!el) return;
+  const top = weakspots.filter(w => w.score > 0).slice(0, 4);
+  if (!top.length) { if (title) title.hidden = true; el.hidden = true; return; }
+  if (title) title.hidden = false;
+  el.hidden = false;
+  const rows = top.map((w, i) => {
+    const d = PRACTICE_DRILLS[w.area] || { drill: "Gerichte oefening", time: 20 };
+    const mins = Math.round(d.time * (1 + w.score / 40));
+    return `<div class="practice-row">
+      <span class="practice-num">${i + 1}</span>
+      <div class="practice-body">
+        <div class="practice-area">${esc(w.area)} <span class="practice-gap">${esc(w.value)}</span></div>
+        <div class="practice-drill">${esc(d.drill)}</div>
+      </div>
+      <span class="practice-time">${mins} min</span>
+    </div>`;
+  }).join("");
+  const total = top.reduce((s, w) => {
+    const d = PRACTICE_DRILLS[w.area] || { time: 20 };
+    return s + Math.round(d.time * (1 + w.score / 40));
+  }, 0);
+  el.innerHTML = `<div class="practice-list">${rows}</div>
+    <p class="practice-total">Totale sessieduur: ~${total} minuten</p>`;
+}
+
+function renderSeasonStats(seasons) {
+  const el = $("#seasonGrid");
+  const title = $("#seasonTitle");
+  if (!el) return;
+  if (!seasons || seasons.length < 2) { if (title) title.hidden = true; el.hidden = true; return; }
+  if (title) title.hidden = false;
+  el.hidden = false;
+  const cols = ["Seizoen", "Rondes", "Gem. STB", "GIR%", "Fairway%", "3-putts", "Scrambling", "HCP"];
+  const rows = seasons.map(s => {
+    const hcpStr = s.startHcp != null && s.endHcp != null && s.startHcp !== s.endHcp
+      ? `${s.startHcp.toFixed(1)} → ${s.endHcp.toFixed(1)}`
+      : (s.endHcp != null ? s.endHcp.toFixed(1) : "—");
+    return [
+      `<strong>${s.year}</strong>`,
+      s.count,
+      s.avgStb18 != null ? s.avgStb18.toFixed(1) : "—",
+      s.girPct   != null ? `${s.girPct}%`         : "—",
+      s.fairwayPct != null ? `${s.fairwayPct}%`   : "—",
+      s.threePutts != null ? s.threePutts.toFixed(1) : "—",
+      s.scrambling != null ? `${s.scrambling}%`   : "—",
+      hcpStr,
+    ];
+  });
+  el.innerHTML = `<div class="season-table-wrap"><table class="season-table">
+    <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table></div>`;
+}
+
+function renderCourseStats(courses) {
+  const el = $("#courseGrid");
+  const title = $("#courseTitle");
+  if (!el) return;
+  if (!courses || !courses.length) { if (title) title.hidden = true; el.hidden = true; return; }
+  if (title) title.hidden = false;
+  el.hidden = false;
+  el.innerHTML = `<div class="course-list">${courses.map(c => `
+    <div class="course-row">
+      <div class="course-row__name">${esc(c.name)}</div>
+      <div class="course-row__stats">
+        ${c.avgStb  != null ? `<span class="course-chip">STB ${c.avgStb.toFixed(1)}</span>` : ""}
+        ${c.bestStb != null ? `<span class="course-chip course-chip--best">Beste ${c.bestStb}</span>` : ""}
+        ${c.avgSd   != null ? `<span class="course-chip">SD ${c.avgSd.toFixed(1)}</span>` : ""}
+        <span class="course-chip course-chip--count">${c.count}×</span>
+      </div>
+    </div>`).join("")}</div>`;
+}
+
+function renderHoleDifficulty(holes) {
+  const el = $("#holeDiffGrid");
+  const title = $("#holeDiffTitle");
+  if (!el) return;
+  if (!holes || holes.length < 6) { if (title) title.hidden = true; el.hidden = true; return; }
+  if (title) title.hidden = false;
+  el.hidden = false;
+  const maxDiff = Math.max(...holes.map(h => Math.abs(h.avgDiff)), 0.1);
+  const cols = holes.map(h => {
+    const pct  = Math.min(100, Math.round((Math.abs(h.avgDiff) / maxDiff) * 100));
+    const sign  = h.avgDiff > 0 ? "+" : "";
+    const cls   = h.avgDiff >= 1.5 ? "red" : h.avgDiff >= 0.75 ? "orange" : "green";
+    return `<div class="hole-col">
+      <div class="hole-bar-wrap">
+        <div class="hole-bar hole-bar--${cls}" style="height:${pct}%"></div>
+      </div>
+      <div class="hole-num">${h.hole}</div>
+      <div class="hole-diff hole-diff--${cls}">${sign}${h.avgDiff.toFixed(1)}</div>
+    </div>`;
+  }).join("");
+  el.innerHTML = `<div class="hole-diff-chart">${cols}</div>
+    <p class="hole-diff-legend">Gemiddelde score t.o.v. par per hole (${holes[0]?.count || 0}+ meetpunten)</p>`;
 }
 
 // ---------- club bag ----------

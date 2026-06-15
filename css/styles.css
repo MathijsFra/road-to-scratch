@@ -1086,3 +1086,50 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 :root[data-theme="dark"] .gl-badge--manual, :root[data-theme="dark"] .gl-badge--both { background: rgba(39,174,96,0.15); }
 :root[data-theme="dark"] .cl-badge--toptracer { background: rgba(66,133,244,0.15); }
 :root[data-theme="dark"] .cl-badge--manual { background: rgba(39,174,96,0.15); }
+
+/* ---------- Groep A — Practice planner ---------- */
+.practice-list { display: flex; flex-direction: column; gap: 10px; }
+.practice-row { display: flex; align-items: flex-start; gap: 10px; background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.practice-num { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--green-800); color: #fff; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.practice-body { flex: 1; min-width: 0; }
+.practice-area { font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.practice-gap { font-size: 0.72rem; font-weight: 600; color: var(--muted); }
+.practice-drill { font-size: 0.80rem; color: var(--muted); margin-top: 2px; }
+.practice-time { flex-shrink: 0; font-size: 0.78rem; font-weight: 700; color: var(--green-800); background: var(--green-100); border-radius: 8px; padding: 3px 7px; margin-top: 1px; white-space: nowrap; }
+.practice-total { font-size: 0.80rem; color: var(--muted); margin: 8px 0 0; text-align: right; }
+:root[data-theme="dark"] .practice-num { background: var(--green-600); }
+:root[data-theme="dark"] .practice-time { background: rgba(77,197,42,0.12); color: var(--green-600); }
+
+/* ---------- Groep A — Season comparison ---------- */
+.season-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.season-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.season-table th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.season-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.season-table tr:last-child td { border-bottom: none; }
+.season-table tbody tr:hover { background: var(--bg); }
+
+/* ---------- Groep A — Course stats ---------- */
+.course-list { display: flex; flex-direction: column; gap: 6px; }
+.course-row { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); }
+.course-row__name { font-size: 0.88rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-row__stats { display: flex; flex-wrap: wrap; gap: 4px; flex-shrink: 0; }
+.course-chip { font-size: 0.70rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; background: var(--bg); color: var(--muted); white-space: nowrap; }
+.course-chip--best { background: var(--green-100); color: var(--green-800); }
+.course-chip--count { background: #e8f0fe; color: #1a73e8; }
+:root[data-theme="dark"] .course-chip--best { background: rgba(77,197,42,0.12); color: var(--green-600); }
+:root[data-theme="dark"] .course-chip--count { background: rgba(66,133,244,0.15); color: #8ab4f8; }
+
+/* ---------- Groep A — Hole difficulty bar chart ---------- */
+.hole-diff-chart { display: flex; align-items: flex-end; gap: 4px; height: 110px; padding-bottom: 28px; position: relative; }
+.hole-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
+.hole-bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; }
+.hole-bar { width: 100%; border-radius: 4px 4px 0 0; transition: height 0.3s; min-height: 4px; }
+.hole-bar--green  { background: #27ae60; }
+.hole-bar--orange { background: #e67e22; }
+.hole-bar--red    { background: #e74c3c; }
+.hole-num  { font-size: 0.60rem; color: var(--muted); margin-top: 2px; line-height: 1; }
+.hole-diff { font-size: 0.60rem; font-weight: 700; line-height: 1; }
+.hole-diff--green  { color: #27ae60; }
+.hole-diff--orange { color: #e67e22; }
+.hole-diff--red    { color: #e74c3c; }
+.hole-diff-legend { font-size: 0.72rem; color: var(--muted); margin: 4px 0 0; text-align: center; }

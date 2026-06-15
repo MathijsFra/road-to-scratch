@@ -11,7 +11,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>Road to Scratch</title>
-  <link rel="stylesheet" href="css/styles.css?v=4" />
+  <link rel="stylesheet" href="css/styles.css?v=5" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -95,6 +95,21 @@
 
       <h2 class="section-title">Garmin gemiddelden</h2>
       <div class="stat-grid" id="garminGrid"></div>
+
+      <h2 class="section-title" id="puttsByGirTitle">Putts: GIR vs non-GIR</h2>
+      <div class="stat-grid" id="puttsByGirGrid"></div>
+
+      <h2 class="section-title" id="practicePlanTitle">Oefensessie-planner</h2>
+      <div id="practicePlanGrid"></div>
+
+      <h2 class="section-title" id="seasonTitle">Seizoensvergelijking</h2>
+      <div id="seasonGrid"></div>
+
+      <h2 class="section-title" id="courseTitle">Prestaties per baan</h2>
+      <div id="courseGrid"></div>
+
+      <h2 class="section-title" id="holeDiffTitle">Hole-moeilijkheid</h2>
+      <div id="holeDiffGrid"></div>
 
       <h2 class="section-title" id="exsTitle" hidden>Exceptionele scores (EXS)</h2>
       <div id="exsList" class="exs-list" hidden></div>
@@ -494,6 +509,6 @@
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instellingen</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=54"></script>
+  <script type="module" src="js/app.js?v=55"></script>
 </body>
 </html>
