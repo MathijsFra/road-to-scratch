@@ -136,7 +136,7 @@ html, body {
 #main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px 16px calc(96px + var(--safe-bottom));
+  padding: 16px 16px calc(78px + var(--safe-bottom));
 }
 .view { display: none; animation: fade .2s ease; }
 .view.active { display: block; }
@@ -146,7 +146,7 @@ html, body {
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--muted);
-  margin: 22px 2px 10px;
+  margin: 20px 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -548,46 +548,56 @@ textarea { resize: vertical; }
   bottom: 0; left: 0; right: 0;
   z-index: 30;
   display: flex;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   background: rgba(18, 18, 18, 0.97);
   backdrop-filter: saturate(120%) blur(16px);
   -webkit-backdrop-filter: saturate(120%) blur(16px);
   border-top: 1px solid rgba(255,255,255,0.07);
   padding-bottom: var(--safe-bottom);
+  align-items: stretch;
 }
-.tabbar::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 1 0 auto;
-  min-width: 58px;
+  flex: 1 1 0;
+  min-width: 0;
   border: none;
   background: none;
   color: rgba(255,255,255,0.38);
-  font-size: 0.62rem;
+  font-size: 0.60rem;
   font-weight: 600;
   font-family: inherit;
-  padding: 9px 4px 7px;
+  padding: 8px 2px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 2px;
   cursor: pointer;
   transition: color 0.15s;
   white-space: nowrap;
+  overflow: hidden;
+  position: relative;
 }
-.tab .ico { font-size: 1.25rem; line-height: 1; }
+.tab .ico { font-size: 1.2rem; line-height: 1; }
 .tab.active { color: var(--brand-lime); }
+.tab.active::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 25%; right: 25%;
+  height: 2px;
+  background: var(--brand-lime);
+  border-radius: 0 0 3px 3px;
+}
 .tab-add .ico {
   background: var(--brand-lime);
   color: #0D0D0D;
-  width: 34px; height: 34px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1.4rem;
-  margin-top: -2px;
+  font-size: 1.3rem;
   box-shadow: 0 4px 12px rgba(77,197,42,0.45);
 }
+.tab-add.active::after { display: none; }
 .tab-add.active .ico { background: var(--brand-lime); filter: brightness(0.9); }
 
 @media (min-width: 560px) {
