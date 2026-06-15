@@ -193,6 +193,7 @@ html, body {
 
 /* ---------- Stat grid ---------- */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-grid > .stat-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .stat-card {
   background: var(--card);
   border-radius: var(--radius);
