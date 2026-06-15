@@ -1185,6 +1185,15 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 /* Radar chart: taller aspect ratio */
 .chart-wrap--radar { height: 280px; }
 
+/* Radar toelichting */
+.radar-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 6px 0 0;
+  padding: 0 8px;
+}
+
 /* Empty state inside chart blocks */
 .chart-no-data {
   font-size: 0.84rem;

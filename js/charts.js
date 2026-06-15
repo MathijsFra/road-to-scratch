@@ -326,6 +326,11 @@ export function renderRadarChart(stats) {
     normScore(benchDb,   1.5, 75,  false),
   ];
 
+  // Raw values for tooltip — shown instead of the normalized 0-100 score
+  const rawPlayer = [p.girPct, p.fairwayPct, p.threePutts, p.penalties, p.doubleBogeyRate];
+  const rawBench  = [benchGir,  benchFw,  benchTp,  benchPen,  benchDb];
+  const RADAR_UNITS = ["%", "%", "×/18h", "/18h", "%"];
+
   if (radarChart) radarChart.destroy();
   radarChart = new Chart(el, {
     type: "radar",
@@ -335,6 +340,7 @@ export function renderRadarChart(stats) {
         {
           label: "Jij",
           data: playerData,
+          _rawValues: rawPlayer,
           borderColor: GREEN,
           backgroundColor: "rgba(22,163,74,0.18)",
           borderWidth: 2.5,
@@ -344,6 +350,7 @@ export function renderRadarChart(stats) {
         {
           label: `Doel HCP ${Math.round(hcp)}`,
           data: benchData,
+          _rawValues: rawBench,
           borderColor: GOLD,
           backgroundColor: "rgba(217,119,6,0.08)",
           borderWidth: 2,
@@ -361,7 +368,12 @@ export function renderRadarChart(stats) {
         tooltip: {
           padding: 10,
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw ?? 0)}%`,
+            label: (ctx) => {
+              const raw = ctx.dataset._rawValues?.[ctx.dataIndex];
+              if (raw == null) return `${ctx.dataset.label}: geen data`;
+              const unit = RADAR_UNITS[ctx.dataIndex] ?? "";
+              return `${ctx.dataset.label}: ${raw.toFixed(1)}${unit}`;
+            },
           },
         },
       },
