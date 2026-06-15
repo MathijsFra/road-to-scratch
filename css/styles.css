@@ -588,18 +588,10 @@ textarea { resize: vertical; }
   background: var(--brand-lime);
   border-radius: 0 0 3px 3px;
 }
-.tab-add .ico {
-  background: var(--brand-lime);
-  color: #0D0D0D;
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 1.3rem;
-  box-shadow: 0 4px 12px rgba(77,197,42,0.45);
+.add-round-btn {
+  width: 100%;
+  margin-bottom: 12px;
 }
-.tab-add.active::after { display: none; }
-.tab-add.active .ico { background: var(--brand-lime); filter: brightness(0.9); }
 
 @media (min-width: 560px) {
   .garmin-grid { grid-template-columns: repeat(4, 1fr); }

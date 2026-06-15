@@ -11,7 +11,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>Road to Scratch</title>
-  <link rel="stylesheet" href="css/styles.css?v=8" />
+  <link rel="stylesheet" href="css/styles.css?v=9" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -129,6 +129,7 @@
           <option value="18">18 holes</option>
         </select>
       </div>
+      <button id="addRoundBtn" class="btn btn-primary add-round-btn">＋ Ronde toevoegen</button>
       <div id="roundList" class="round-list"></div>
     </section>
 
@@ -502,13 +503,12 @@
   <nav class="tabbar">
     <button class="tab active" data-view="dashboard"><span class="ico">📊</span>Overzicht</button>
     <button class="tab" data-view="rounds"><span class="ico">📋</span>Rondes</button>
-    <button class="tab tab-add" data-view="add"><span class="ico">＋</span>Toevoegen</button>
     <button class="tab" data-view="chart"><span class="ico">📈</span>Grafiek</button>
     <button class="tab" data-view="coach"><span class="ico">🤖</span>Coach</button>
     <button class="tab" data-view="bag"><span class="ico">🏌️</span>Bag</button>
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instell.</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=56"></script>
+  <script type="module" src="js/app.js?v=57"></script>
 </body>
 </html>

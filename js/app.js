@@ -1730,6 +1730,7 @@ async function main() {
   else { badge.textContent = "● Lokaal"; badge.className = "db-badge local"; }
 
   $$(".tab").forEach((t) => t.addEventListener("click", () => switchView(t.dataset.view)));
+  $("#addRoundBtn")?.addEventListener("click", () => { resetForm(); switchView("add"); });
   $("#roundForm").addEventListener("submit", onSubmit);
   $("#cancelBtn").addEventListener("click", () => { resetForm(); switchView("rounds"); });
   $("#filterHoles").addEventListener("change", renderRoundList);
