@@ -1248,6 +1248,7 @@ function initMultiStatToggles() {
 }
 
 function buildCharts() {
+  if (!stats) return;
   applyChartVisibility();
   const hidden = getChartHidden();
   const mActive = getActiveMultiStats();
