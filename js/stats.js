@@ -42,13 +42,14 @@ function girCount(r) {
 }
 function fairwayStats(r) {
   const hd = holesData(r);
-  // Exclude par-3 holes: no fairway shot needed, their fairway value distorts the %
-  const applicable = hd.filter((h) =>
-    h.fairway !== null && h.fairway !== undefined && h.fairway !== "" && num(h.par) !== 3
-  );
-  if (applicable.length) {
-    const hit = applicable.filter((h) => h.fairway === "hit").length;
-    return { hit, total: applicable.length };
+  // Exclude par-3 holes: no fairway shot needed
+  const nonPar3 = hd.filter((h) => num(h.par) !== 3);
+  // Use per-hole data if at least one hole has a fairway value recorded.
+  // Holes with no value (null/"") count as missed — only "hit" is a hit.
+  const hasFwData = nonPar3.some((h) => h.fairway !== null && h.fairway !== undefined && h.fairway !== "");
+  if (hasFwData) {
+    const hit = nonPar3.filter((h) => h.fairway === "hit").length;
+    return { hit, total: nonPar3.length };
   }
   if (num(r.fairways_hit) !== null && num(r.fairways_total) !== null) {
     return { hit: num(r.fairways_hit), total: num(r.fairways_total) };
