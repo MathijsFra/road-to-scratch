@@ -10,7 +10,7 @@ import {
   updateRoundLoop, saveGoal,
   callCoachAdvice, getManualDistances, upsertManualDistance, deleteManualDistance,
 } from "./db.js?v=37";
-import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=20";
+import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=21";
 import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
@@ -359,28 +359,55 @@ function renderCourseStats(courses) {
     </div>`).join("")}</div>`;
 }
 
-function renderHoleDifficulty(holes) {
+function renderHoleDifficulty(courses) {
   const el = $("#holeDiffGrid");
   const title = $("#holeDiffTitle");
   if (!el) return;
-  if (!holes || holes.length < 6) { if (title) title.hidden = true; el.hidden = true; return; }
+  if (!courses || !courses.length) { if (title) title.hidden = true; el.hidden = true; return; }
   if (title) title.hidden = false;
   el.hidden = false;
-  const maxDiff = Math.max(...holes.map(h => Math.abs(h.avgDiff)), 0.1);
-  const cols = holes.map(h => {
-    const pct  = Math.min(100, Math.round((Math.abs(h.avgDiff) / maxDiff) * 100));
-    const sign  = h.avgDiff > 0 ? "+" : "";
-    const cls   = h.avgDiff >= 1.5 ? "red" : h.avgDiff >= 0.75 ? "orange" : "green";
-    return `<div class="hole-col">
-      <div class="hole-bar-wrap">
-        <div class="hole-bar hole-bar--${cls}" style="height:${pct}%"></div>
-      </div>
-      <div class="hole-num">${h.hole}</div>
-      <div class="hole-diff hole-diff--${cls}">${sign}${h.avgDiff.toFixed(1)}</div>
-    </div>`;
-  }).join("");
-  el.innerHTML = `<div class="hole-diff-chart">${cols}</div>
-    <p class="hole-diff-legend">Gemiddelde score t.o.v. par per hole (${holes[0]?.count || 0}+ meetpunten)</p>`;
+
+  const drawChart = (course) => {
+    const { holes, courseName, roundCount } = course;
+    const maxDiff = Math.max(...holes.map(h => Math.abs(h.avgDiff)), 0.1);
+    const cols = holes.map(h => {
+      const pct = Math.min(100, Math.round((Math.abs(h.avgDiff) / maxDiff) * 100));
+      const sign = h.avgDiff > 0 ? "+" : "";
+      const cls  = h.avgDiff >= 1.5 ? "red" : h.avgDiff >= 0.75 ? "orange" : "green";
+      return `<div class="hole-col">
+        <div class="hole-bar-wrap"><div class="hole-bar hole-bar--${cls}" style="height:${pct}%"></div></div>
+        <div class="hole-num">${h.hole}</div>
+        <div class="hole-diff hole-diff--${cls}">${sign}${h.avgDiff.toFixed(1)}</div>
+      </div>`;
+    }).join("");
+    el.querySelector(".hole-diff-chart").innerHTML = cols;
+    el.querySelector(".hole-diff-legend").textContent =
+      `${esc(courseName)} — ${roundCount} rondes, gem. score t.o.v. par per hole`;
+  };
+
+  if (courses.length === 1) {
+    el.innerHTML = `<div class="hole-diff-chart"></div><p class="hole-diff-legend"></p>`;
+    drawChart(courses[0]);
+    return;
+  }
+
+  const options = courses.map((c, i) =>
+    `<option value="${i}">${esc(c.courseName)} (${c.roundCount}×)</option>`).join("");
+  el.innerHTML = `<select class="hole-diff-select mini-select" id="holeDiffSelect">
+      <option value="">— Kies een baan —</option>${options}
+    </select>
+    <div class="hole-diff-chart" id="holeDiffChart"></div>
+    <p class="hole-diff-legend" id="holeDiffLegend"></p>`;
+
+  el.querySelector("#holeDiffSelect").addEventListener("change", function () {
+    const i = parseInt(this.value, 10);
+    if (isNaN(i)) {
+      el.querySelector(".hole-diff-chart").innerHTML = "";
+      el.querySelector(".hole-diff-legend").textContent = "";
+    } else {
+      drawChart(courses[i]);
+    }
+  });
 }
 
 // ---------- club bag ----------

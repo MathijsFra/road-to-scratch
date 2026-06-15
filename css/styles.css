@@ -1132,4 +1132,5 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 .hole-diff--green  { color: #27ae60; }
 .hole-diff--orange { color: #e67e22; }
 .hole-diff--red    { color: #e74c3c; }
+.hole-diff-select { margin-bottom: 12px; }
 .hole-diff-legend { font-size: 0.72rem; color: var(--muted); margin: 4px 0 0; text-align: center; }

@@ -573,27 +573,41 @@ export function computeCourseStats(rounds) {
     }));
 }
 
-// Gemiddeld score vs par per holenummer (1–18), minimaal 3 meetpunten.
+// Hole-moeilijkheid gegroepeerd per baan — alleen zinvol binnen dezelfde baan.
+// Geeft een array van { courseName, roundCount, holes[] } terug, gesorteerd op rondes desc.
+// De UI laat de gebruiker een baan kiezen.
 export function computeHoleDifficulty(rounds) {
-  const data = {};
+  const byCourse = {};
   for (const r of rounds) {
-    for (const h of holesData(r)) {
+    const name = (r.course || "").split(" ~ ")[0].trim();
+    if (!name) continue;
+    const valid = holesData(r).filter(h => {
+      const n = num(h.hole), s = num(h.score), p = num(h.par);
+      return n !== null && s !== null && p !== null && n >= 1 && n <= 18;
+    });
+    if (!valid.length) continue;
+    if (!byCourse[name]) byCourse[name] = { rounds: 0, holes: {} };
+    byCourse[name].rounds++;
+    for (const h of valid) {
       const n = num(h.hole);
-      const s = num(h.score);
-      const p = num(h.par);
-      if (n === null || s === null || p === null || n < 1 || n > 18) continue;
-      if (!data[n]) data[n] = { diffs: [], pars: [] };
-      data[n].diffs.push(s - p);
-      data[n].pars.push(p);
+      if (!byCourse[name].holes[n]) byCourse[name].holes[n] = { diffs: [], pars: [] };
+      byCourse[name].holes[n].diffs.push(num(h.score) - num(h.par));
+      byCourse[name].holes[n].pars.push(num(h.par));
     }
   }
-  return Array.from({ length: 18 }, (_, i) => i + 1)
-    .map(n => {
-      const d = data[n];
-      if (!d || d.diffs.length < 3) return null;
-      return { hole: n, avgDiff: round1(avg(d.diffs)), avgPar: round1(avg(d.pars)), count: d.diffs.length };
+  return Object.entries(byCourse)
+    .sort(([, a], [, b]) => b.rounds - a.rounds)
+    .map(([courseName, c]) => {
+      const holes = Array.from({ length: 18 }, (_, i) => i + 1)
+        .map(n => {
+          const d = c.holes[n];
+          if (!d || d.diffs.length < 3) return null;
+          return { hole: n, avgDiff: round1(avg(d.diffs)), avgPar: round1(avg(d.pars)), count: d.diffs.length };
+        })
+        .filter(Boolean);
+      return { courseName, roundCount: c.rounds, holes };
     })
-    .filter(Boolean);
+    .filter(c => c.holes.length >= 6);
 }
 
 // Kerncijfers per kalenderjaar (laatste 3 seizoenen).
