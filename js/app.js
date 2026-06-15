@@ -11,7 +11,7 @@ import {
   callCoachAdvice, getManualDistances, upsertManualDistance, deleteManualDistance,
 } from "./db.js?v=37";
 import { computeStats, computeWeakspots, computeCoachData, hcpLevel } from "./stats.js?v=21";
-import { renderHcpChart, renderStbChart, renderTrendChart } from "./charts.js?v=12";
+import { renderHcpChart, renderStbChart, renderTrendChart, renderScoreBreakdownChart, renderRadarChart, renderMultiStatTrendChart } from "./charts.js?v=13";
 
 const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
@@ -1181,10 +1181,86 @@ function applyUserGoal(s) {
 }
 
 // ---------- charts ----------
+const CHART_HIDDEN_KEY = "golf_chart_hidden_v1";
+const MULTISTAT_KEY    = "golf_multistat_v1";
+
+function getChartHidden() {
+  try { return JSON.parse(localStorage.getItem(CHART_HIDDEN_KEY)) || {}; } catch { return {}; }
+}
+
+function getActiveMultiStats() {
+  try {
+    return Object.assign({ gir: true, fw: true, scrambling: true }, JSON.parse(localStorage.getItem(MULTISTAT_KEY)));
+  } catch { return { gir: true, fw: true, scrambling: true }; }
+}
+
+function applyChartVisibility() {
+  const hidden = getChartHidden();
+  const active = getActiveMultiStats();
+  $$(".chart-block").forEach(block => {
+    const id = block.dataset.chart;
+    const isHidden = hidden[id] === true;
+    const collapsible = block.querySelector(".chart-collapsible");
+    const btn = block.querySelector(".chart-toggle-btn");
+    if (collapsible) collapsible.hidden = isHidden;
+    if (btn) btn.textContent = isHidden ? "Tonen" : "Verbergen";
+  });
+  $$(".ms-toggle").forEach(btn => btn.classList.toggle("active", active[btn.dataset.stat] !== false));
+}
+
+function _rebuildChart(id) {
+  if (id === "hcp")            renderHcpChart(rounds);
+  else if (id === "stb")       renderStbChart(rounds);
+  else if (id === "trend")     renderTrendChart(stats.trend);
+  else if (id === "scoreBreakdown") renderScoreBreakdownChart(rounds);
+  else if (id === "radar")     renderRadarChart(stats);
+  else if (id === "multiStat") renderMultiStatTrendChart(rounds, getActiveMultiStats());
+}
+
+function initChartToggles() {
+  $$(".chart-toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const block = btn.closest(".chart-block");
+      const id = block.dataset.chart;
+      const hidden = getChartHidden();
+      const nowHidden = !(hidden[id] === true);
+      hidden[id] = nowHidden;
+      localStorage.setItem(CHART_HIDDEN_KEY, JSON.stringify(hidden));
+      const collapsible = block.querySelector(".chart-collapsible");
+      if (collapsible) collapsible.hidden = nowHidden;
+      btn.textContent = nowHidden ? "Tonen" : "Verbergen";
+      if (!nowHidden) _rebuildChart(id);
+    });
+  });
+}
+
+function initMultiStatToggles() {
+  $$(".ms-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const active = getActiveMultiStats();
+      const stat = btn.dataset.stat;
+      active[stat] = !active[stat];
+      localStorage.setItem(MULTISTAT_KEY, JSON.stringify(active));
+      btn.classList.toggle("active", active[stat]);
+      renderMultiStatTrendChart(rounds, active);
+    });
+  });
+}
+
 function buildCharts() {
-  renderHcpChart(rounds);
-  renderStbChart(rounds);
-  renderTrendChart(stats.trend);
+  applyChartVisibility();
+  const hidden = getChartHidden();
+  const mActive = getActiveMultiStats();
+
+  if (!hidden["hcp"])            renderHcpChart(rounds);
+  if (!hidden["stb"])            renderStbChart(rounds);
+  if (!hidden["trend"])          renderTrendChart(stats.trend);
+  if (!hidden["scoreBreakdown"]) renderScoreBreakdownChart(rounds);
+  if (!hidden["radar"])          renderRadarChart(stats);
+  if (!hidden["multiStat"])      renderMultiStatTrendChart(rounds, mActive);
+
+  initChartToggles();
+  initMultiStatToggles();
   chartsBuilt = true;
 }
 

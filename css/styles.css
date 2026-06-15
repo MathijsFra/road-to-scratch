@@ -1137,3 +1137,65 @@ details.adv[open] > summary::after { transform: rotate(180deg); }
 .hole-diff--red    { color: #e74c3c; }
 .hole-diff-select { margin-bottom: 12px; }
 .hole-diff-legend { font-size: 0.72rem; color: var(--muted); margin: 4px 0 0; text-align: center; }
+
+/* ---------- Grafiek tab — chart blocks met toggle ---------- */
+.chart-block { margin-bottom: 4px; }
+.chart-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 20px 0 8px;
+}
+.chart-block-header .section-title { margin: 0; }
+.chart-toggle-btn {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.chart-toggle-btn:active { background: var(--line); }
+
+/* Multi-stat toggle buttons */
+.chart-block-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+.ms-toggle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.ms-toggle.active {
+  color: #fff;
+  background: var(--green-800);
+  border-color: var(--green-800);
+}
+
+/* Radar chart: taller aspect ratio */
+.chart-wrap--radar { height: 280px; }
+
+/* Empty state inside chart blocks */
+.chart-no-data {
+  font-size: 0.84rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 24px 16px;
+  margin: 0;
+}
+
+/* Dark mode overrides */
+:root[data-theme="dark"] .chart-toggle-btn { border-color: rgba(255,255,255,0.12); }
+:root[data-theme="dark"] .chart-toggle-btn:active { background: rgba(255,255,255,0.06); }
+:root[data-theme="dark"] .ms-toggle { border-color: rgba(255,255,255,0.12); background: transparent; }
+:root[data-theme="dark"] .ms-toggle.active { background: var(--green-600); border-color: var(--green-600); color: #0D0D0D; }

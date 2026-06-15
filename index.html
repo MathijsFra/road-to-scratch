@@ -11,7 +11,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="manifest" href="manifest.webmanifest" />
   <title>Road to Scratch</title>
-  <link rel="stylesheet" href="css/styles.css?v=9" />
+  <link rel="stylesheet" href="css/styles.css?v=10" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -135,12 +135,73 @@
 
     <!-- CHART -->
     <section id="view-chart" class="view">
-      <h2 class="section-title">Handicap progressie</h2>
-      <div class="chart-wrap"><canvas id="hcpChart"></canvas></div>
-      <h2 class="section-title">Stableford per ronde</h2>
-      <div class="chart-wrap"><canvas id="stbChart"></canvas></div>
-      <h2 class="section-title">Rolling 10-rondes trend</h2>
-      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      <div class="chart-block" data-chart="hcp">
+        <div class="chart-block-header">
+          <h2 class="section-title">Handicap progressie</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-wrap"><canvas id="hcpChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-block" data-chart="stb">
+        <div class="chart-block-header">
+          <h2 class="section-title">Stableford per ronde</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-wrap"><canvas id="stbChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-block" data-chart="trend">
+        <div class="chart-block-header">
+          <h2 class="section-title">Rolling 10-rondes trend</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-block" data-chart="scoreBreakdown">
+        <div class="chart-block-header">
+          <h2 class="section-title">Scoreverdeling per ronde</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-wrap"><canvas id="scoreBreakdownChart"></canvas></div>
+          <p class="chart-no-data" id="scoreBreakdownEmpty" hidden>Nog geen per-hole scoredata beschikbaar (minimaal 9 holes nodig).</p>
+        </div>
+      </div>
+
+      <div class="chart-block" data-chart="radar">
+        <div class="chart-block-header">
+          <h2 class="section-title">Jij vs benchmark</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-wrap chart-wrap--radar"><canvas id="radarChart"></canvas></div>
+          <p class="chart-no-data" id="radarEmpty" hidden>Te weinig data voor een vergelijking (GIR, fairways of 3-putts nodig).</p>
+        </div>
+      </div>
+
+      <div class="chart-block" data-chart="multiStat">
+        <div class="chart-block-header">
+          <h2 class="section-title">Statistieken over tijd</h2>
+          <button class="chart-toggle-btn">Verbergen</button>
+        </div>
+        <div class="chart-collapsible">
+          <div class="chart-block-controls">
+            <button class="ms-toggle" data-stat="gir">GIR%</button>
+            <button class="ms-toggle" data-stat="fw">Fairway%</button>
+            <button class="ms-toggle" data-stat="scrambling">Scrambling%</button>
+          </div>
+          <div class="chart-wrap"><canvas id="multiStatChart"></canvas></div>
+          <p class="chart-no-data" id="multiStatEmpty" hidden>Nog geen GIR/fairway data beschikbaar per ronde.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ADD / EDIT -->
@@ -509,6 +570,6 @@
     <button class="tab" data-view="settings"><span class="ico">⚙️</span>Instell.</button>
   </nav>
 
-  <script type="module" src="js/app.js?v=57"></script>
+  <script type="module" src="js/app.js?v=58"></script>
 </body>
 </html>
